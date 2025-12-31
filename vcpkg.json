@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "repo",
+  "version": "0.1.0",
+  "description": "Modern Git interface with intuitive commands and integrated TUI",
+  "builtin-baseline": "11bbc873e00e9e58d4e9dffb30b7a5493a030e0b",
+  "dependencies": [
+    "libgit2",
+    "fmt",
+    "tomlplusplus",
+    "catch2",
+    "cli11",
+    "ftxui"
+  ]
+}

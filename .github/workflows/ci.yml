@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Check code formatting
+        run: make format-check
+
+  build-and-test:
+    name: Build & Test (${{ matrix.os }}, ${{ matrix.compiler.name }}-${{ matrix.compiler.version }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14]
+        compiler:
+          - { name: gcc, version: 14, cc: gcc-14, cxx: g++-14 }
+          - { name: clang, version: 18, cc: clang-18, cxx: clang++-18 }
+        exclude:
+          # macOS doesn't need GCC testing
+          - os: macos-14
+            compiler: { name: gcc }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install compiler (Ubuntu)
+        if: matrix.os == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          if [ "${{ matrix.compiler.name }}" = "gcc" ]; then
+            sudo apt-get install -y gcc-14 g++-14
+          else
+            sudo apt-get install -y clang-18
+          fi
+
+      - name: Select Xcode version (macOS)
+        if: matrix.os == 'macos-14'
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
+          cd $HOME/vcpkg
+          ./bootstrap-vcpkg.sh
+
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            $HOME/vcpkg/installed
+            $HOME/vcpkg/buildtrees
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-
+
+      - name: Configure CMake
+        env:
+          CC: ${{ matrix.compiler.cc }}
+          CXX: ${{ matrix.compiler.cxx }}
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DREPO_BUILD_TESTS=ON \
+            -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run tests
+        run: cd build && ctest --output-on-failure --build-config Release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-${{ matrix.os }}-${{ matrix.compiler.name }}-${{ matrix.compiler.version }}
+          path: build/repo
+          if-no-files-found: error

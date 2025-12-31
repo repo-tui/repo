@@ -1,0 +1,215 @@
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  detect-version:
+    name: Detect Version Bump
+    runs-on: ubuntu-24.04
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      new_version: ${{ steps.bump.outputs.new_version }}
+      branch_prefix: ${{ steps.detect.outputs.prefix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+
+      - name: Detect branch prefix from merge commit
+        id: detect
+        run: |
+          # Get the merge commit message
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit message: $COMMIT_MSG"
+
+          # Extract branch prefix (epic/, feat/, fix/, docs/)
+          if echo "$COMMIT_MSG" | grep -qE "Merge.*'(epic|feat|fix|docs)/"; then
+            PREFIX=$(echo "$COMMIT_MSG" | grep -oE "(epic|feat|fix|docs)/" | head -1)
+            echo "prefix=$PREFIX" >> $GITHUB_OUTPUT
+            echo "Detected prefix: $PREFIX"
+          else
+            echo "prefix=none" >> $GITHUB_OUTPUT
+            echo "No release prefix detected"
+          fi
+
+      - name: Check if should release
+        id: check
+        run: |
+          if [ "${{ steps.detect.outputs.prefix }}" = "docs/" ] || [ "${{ steps.detect.outputs.prefix }}" = "none" ]; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "Skipping release (docs/ or no prefix)"
+          else
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "Will create release"
+          fi
+
+      - name: Get current version
+        id: current
+        run: |
+          VERSION=$(grep "project(repo VERSION" CMakeLists.txt | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
+
+      - name: Bump version
+        id: bump
+        if: steps.check.outputs.should_release == 'true'
+        run: |
+          CURRENT="${{ steps.current.outputs.version }}"
+          PREFIX="${{ steps.detect.outputs.prefix }}"
+          NEW_VERSION=$(./scripts/bump-version.sh "$PREFIX" "$CURRENT")
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+  update-version:
+    name: Update Version Files
+    needs: detect-version
+    if: needs.detect-version.outputs.should_release == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update CMakeLists.txt
+        run: |
+          NEW_VERSION="${{ needs.detect-version.outputs.new_version }}"
+          sed -i "s/project(repo VERSION [0-9.]*)/project(repo VERSION $NEW_VERSION)/" CMakeLists.txt
+
+      - name: Update vcpkg.json
+        run: |
+          NEW_VERSION="${{ needs.detect-version.outputs.new_version }}"
+          sed -i "s/\"version-string\": \"[0-9.]*\"/\"version-string\": \"$NEW_VERSION\"/" vcpkg.json
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CMakeLists.txt vcpkg.json
+          git commit -m "chore: bump version to ${{ needs.detect-version.outputs.new_version }}"
+          git push
+
+  build-release:
+    name: Build Release (${{ matrix.platform }})
+    needs: [detect-version, update-version]
+    if: needs.detect-version.outputs.should_release == 'true'
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-24.04
+            arch: x86_64
+            compiler_cc: gcc-14
+            compiler_cxx: g++-14
+
+          - platform: linux-aarch64
+            os: ubuntu-24.04
+            arch: aarch64
+            compiler_cc: aarch64-linux-gnu-gcc
+            compiler_cxx: aarch64-linux-gnu-g++
+
+          - platform: darwin-x86_64
+            os: macos-14
+            arch: x86_64
+            compiler_cc: clang
+            compiler_cxx: clang++
+            cmake_flags: -DCMAKE_OSX_ARCHITECTURES=x86_64
+
+          - platform: darwin-aarch64
+            os: macos-14
+            arch: arm64
+            compiler_cc: clang
+            compiler_cxx: clang++
+            cmake_flags: -DCMAKE_OSX_ARCHITECTURES=arm64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main  # Get the updated version
+
+      - name: Install cross-compiler (Linux ARM64)
+        if: matrix.arch == 'aarch64'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Install compiler (Linux x86_64)
+        if: matrix.os == 'ubuntu-24.04' && matrix.arch == 'x86_64'
+        run: sudo apt-get update && sudo apt-get install -y gcc-14 g++-14
+
+      - name: Select Xcode (macOS)
+        if: matrix.os == 'macos-14'
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+
+      - name: Install vcpkg
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git $HOME/vcpkg
+          cd $HOME/vcpkg
+          ./bootstrap-vcpkg.sh
+
+      - name: Build release binary
+        env:
+          CC: ${{ matrix.compiler_cc }}
+          CXX: ${{ matrix.compiler_cxx }}
+        run: |
+          cmake -B build -S . \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DREPO_BUILD_TESTS=OFF \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake \
+            ${{ matrix.cmake_flags }}
+
+          cmake --build build --config Release
+          strip build/repo || true
+
+      - name: Create tarball
+        run: |
+          VERSION="${{ needs.detect-version.outputs.new_version }}"
+          ./scripts/package-tarball.sh "$VERSION" "${{ matrix.platform }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-v${{ needs.detect-version.outputs.new_version }}-${{ matrix.platform }}
+          path: repo-v${{ needs.detect-version.outputs.new_version }}-${{ matrix.platform }}.tar.gz
+
+  create-release:
+    name: Create GitHub Release
+    needs: [detect-version, build-release]
+    if: needs.detect-version.outputs.should_release == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create Git tag
+        run: |
+          VERSION="${{ needs.detect-version.outputs.new_version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.detect-version.outputs.new_version }}"
+
+          # Move artifacts to current directory
+          find artifacts/ -name "*.tar.gz" -exec mv {} . \;
+
+          gh release create "v$VERSION" \
+            --title "repo v$VERSION" \
+            --generate-notes \
+            repo-v$VERSION-*.tar.gz
