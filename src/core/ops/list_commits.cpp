@@ -1,3 +1,4 @@
+#include <repo/ops/common.hpp>
 #include <repo/ops/list_commits.hpp>
 #include <repo/repository.hpp>
 
@@ -12,6 +13,11 @@ auto ListCommitsResult::last() const -> const domain::Commit* {
 }
 
 auto list_commits(Repository& repo, ListCommitsParams params) -> Result<ListCommitsResult> {
+    // Check if repository has commits
+    if (auto err = require_commits(repo, "list commits")) {
+        return std::unexpected(*err);
+    }
+
     // Determine starting point
     std::string ref_name = params.ref_name.value_or("HEAD");
 

@@ -163,6 +163,7 @@ if(REPO_BUILD_TESTS)
         tests/integration/select_commit_test.cpp
         tests/integration/undo_commit_test.cpp
         tests/integration/branch_ops_test.cpp
+        tests/integration/empty_repo_ops_test.cpp
         tests/integration/list_commits_test.cpp
         tests/integration/workflow_test.cpp
         tests/integration/branch_workflow_test.cpp
