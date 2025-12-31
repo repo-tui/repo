@@ -1138,6 +1138,11 @@ auto cmd_remote_push(const std::string& remote, bool force, bool set_upstream) -
     if (!result.has_value()) {
         fmt::print(stderr, fmt::emphasis::bold | red, "Error: ");
         fmt::print(stderr, "{}\n", result.error().message);
+
+        // Print helpful detail if available
+        if (result.error().detail) {
+            fmt::print(stderr, "\n{}\n", *result.error().detail);
+        }
         return 1;
     }
 
