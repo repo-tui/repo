@@ -90,6 +90,47 @@ auto LibGit2Backend::make_libgit2_error(int error_code, const std::string& conte
     return make_error(code, message, detail);
 }
 
+// Credential callback for authentication
+static auto credential_callback(git_credential** out, const char* url,
+                                const char* username_from_url, unsigned int allowed_types,
+                                void* payload) -> int {
+    (void)payload; // Unused
+
+    // Try SSH key from agent (most common for GitHub)
+    if (allowed_types & GIT_CREDENTIAL_SSH_KEY) {
+        return git_credential_ssh_key_from_agent(out, username_from_url);
+    }
+
+    // Try default credentials (will use credential helpers for HTTPS)
+    if (allowed_types & GIT_CREDENTIAL_USERPASS_PLAINTEXT) {
+        return git_credential_userpass_plaintext_new(out, username_from_url, nullptr);
+    }
+
+    // Try SSH key with custom paths if agent failed
+    if (allowed_types & GIT_CREDENTIAL_SSH_KEY) {
+        // Try common SSH key locations
+        const char* home = getenv("HOME");
+        if (home) {
+            std::string id_rsa = std::string(home) + "/.ssh/id_rsa";
+            std::string id_rsa_pub = id_rsa + ".pub";
+            std::string id_ed25519 = std::string(home) + "/.ssh/id_ed25519";
+            std::string id_ed25519_pub = id_ed25519 + ".pub";
+
+            // Try ed25519 first (more modern)
+            int error = git_credential_ssh_key_new(out, username_from_url, id_ed25519_pub.c_str(),
+                                                   id_ed25519.c_str(), nullptr);
+            if (error == 0)
+                return 0;
+
+            // Try RSA
+            return git_credential_ssh_key_new(out, username_from_url, id_rsa_pub.c_str(),
+                                              id_rsa.c_str(), nullptr);
+        }
+    }
+
+    return GIT_PASSTHROUGH;
+}
+
 // Repository operations
 
 auto LibGit2Backend::open(const std::filesystem::path& path)
@@ -1460,6 +1501,9 @@ auto LibGit2Backend::fetch(RepoHandle& handle, const std::string& remote_name,
     git_fetch_options fetch_opts;
     git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
 
+    // Set credential callback for authentication
+    fetch_opts.callbacks.credentials = credential_callback;
+
     // Set prune option
     if (prune) {
         fetch_opts.prune = GIT_FETCH_PRUNE;
@@ -1537,6 +1581,9 @@ auto LibGit2Backend::push(RepoHandle& handle, const std::string& remote_name,
     // Configure push options
     git_push_options push_opts;
     git_push_options_init(&push_opts, GIT_PUSH_OPTIONS_VERSION);
+
+    // Set credential callback for authentication
+    push_opts.callbacks.credentials = credential_callback;
 
     // Determine refspec to push
     std::string push_refspec;

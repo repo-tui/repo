@@ -57,7 +57,8 @@ TEST_CASE("select_commit - fails with helpful message on empty repo", "[integrat
     domain::ObjectId dummy_commit;
 
     // Try to select commit on empty repository
-    auto result = ops::select_commit(temp_repo.repo(), {.commit = dummy_commit, .no_commit = false});
+    auto result =
+        ops::select_commit(temp_repo.repo(), {.commit = dummy_commit, .no_commit = false});
 
     // Should fail
     REQUIRE_FALSE(result.has_value());
@@ -98,8 +99,8 @@ TEST_CASE("rollback - fails with helpful message on empty repo", "[integration][
     domain::ObjectId dummy_target;
 
     // Try to rollback on empty repository
-    auto result = ops::rollback(temp_repo.repo(), {.target = dummy_target,
-                                                    .mode = ops::RollbackMode::Soft});
+    auto result =
+        ops::rollback(temp_repo.repo(), {.target = dummy_target, .mode = ops::RollbackMode::Soft});
 
     // Should fail
     REQUIRE_FALSE(result.has_value());
@@ -116,11 +117,10 @@ TEST_CASE("merge - fails with helpful message on empty repo", "[integration][emp
     TempRepo temp_repo;
 
     // Try to merge on empty repository
-    auto result = ops::merge(temp_repo.repo(),
-                             {.source = "develop",
-                              .strategy = ops::MergeParams::Strategy::FastForward,
-                              .commit = true,
-                              .message = "Merge develop"});
+    auto result = ops::merge(temp_repo.repo(), {.source = "develop",
+                                                .strategy = ops::MergeParams::Strategy::FastForward,
+                                                .commit = true,
+                                                .message = "Merge develop"});
 
     // Should fail
     REQUIRE_FALSE(result.has_value());
