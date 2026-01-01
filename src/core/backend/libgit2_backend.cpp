@@ -1,4 +1,7 @@
 #include <repo/backend/libgit2_backend.hpp>
+#include <repo/backend/credential_helper.hpp>
+#include <repo/backend/interactive_prompt.hpp>
+#include <repo/backend/ssh_key_discovery.hpp>
 
 #include <fmt/format.h>
 
@@ -91,44 +94,71 @@ auto LibGit2Backend::make_libgit2_error(int error_code, const std::string& conte
 }
 
 // Credential callback for authentication
-static auto credential_callback(git_credential** out, const char* url,
-                                const char* username_from_url, unsigned int allowed_types,
-                                void* payload) -> int {
-    (void)payload; // Unused
+// This is a C-style callback required by libgit2
+auto credential_callback(git_credential** out, const char* url,
+                        const char* username_from_url, unsigned int allowed_types,
+                        void* payload) -> int {
 
-    // Try SSH key from agent (most common for GitHub)
-    if (allowed_types & GIT_CREDENTIAL_SSH_KEY) {
-        return git_credential_ssh_key_from_agent(out, username_from_url);
+    // Payload contains pointer to LibGit2Backend instance
+    auto* backend = static_cast<LibGit2Backend*>(payload);
+
+    // Build authentication context
+    AuthenticationContext context;
+    context.url = url ? url : "";
+    context.username_from_url = username_from_url ? std::optional<std::string>(username_from_url)
+                                                   : std::nullopt;
+    context.allowed_types = allowed_types;
+    context.attempt_count = backend->auth_tracker_.get_attempt_count(context.url);
+    context.is_retry = context.attempt_count > 0;
+
+    // Check if max attempts reached
+    if (backend->auth_tracker_.is_max_attempts_reached(context.url)) {
+        return GIT_EAUTH; // Too many attempts, give up
     }
 
-    // Try default credentials (will use credential helpers for HTTPS)
-    if (allowed_types & GIT_CREDENTIAL_USERPASS_PLAINTEXT) {
-        return git_credential_userpass_plaintext_new(out, username_from_url, nullptr);
+    // Record this attempt
+    backend->auth_tracker_.record_attempt(context.url);
+
+    // Try to get credentials using default strategy
+    auto cred_result = backend->default_authentication_strategy(context);
+
+    // Handle credential result
+    if (!cred_result) {
+        return GIT_EAUTH; // Authentication failed
     }
 
-    // Try SSH key with custom paths if agent failed
-    if (allowed_types & GIT_CREDENTIAL_SSH_KEY) {
-        // Try common SSH key locations
-        const char* home = getenv("HOME");
-        if (home) {
-            std::string id_rsa = std::string(home) + "/.ssh/id_rsa";
-            std::string id_rsa_pub = id_rsa + ".pub";
-            std::string id_ed25519 = std::string(home) + "/.ssh/id_ed25519";
-            std::string id_ed25519_pub = id_ed25519 + ".pub";
+    auto& cred = *cred_result;
 
-            // Try ed25519 first (more modern)
-            int error = git_credential_ssh_key_new(out, username_from_url, id_ed25519_pub.c_str(),
-                                                   id_ed25519.c_str(), nullptr);
-            if (error == 0)
-                return 0;
+    // Create appropriate libgit2 credential based on type
+    switch (cred.type) {
+        case CredentialType::SSHAgent: {
+            const char* username = cred.username.empty() ? "git" : cred.username.c_str();
+            return git_credential_ssh_key_from_agent(out, username);
+        }
 
-            // Try RSA
-            return git_credential_ssh_key_new(out, username_from_url, id_rsa_pub.c_str(),
-                                              id_rsa.c_str(), nullptr);
+        case CredentialType::SSHKey: {
+            if (!cred.ssh_private_key_path || !cred.ssh_public_key_path) {
+                return GIT_EAUTH;
+            }
+            const char* username = cred.username.empty() ? "git" : cred.username.c_str();
+            const char* passphrase =
+                cred.ssh_passphrase ? cred.ssh_passphrase->c_str() : nullptr;
+            return git_credential_ssh_key_new(out, username, cred.ssh_public_key_path->c_str(),
+                                              cred.ssh_private_key_path->c_str(), passphrase);
+        }
+
+        case CredentialType::UserPassword:
+        case CredentialType::OAuth: {
+            return git_credential_userpass_plaintext_new(out, cred.username.c_str(),
+                                                         cred.password.c_str());
+        }
+
+        case CredentialType::Default: {
+            return git_credential_default_new(out);
         }
     }
 
-    return GIT_PASSTHROUGH;
+    return GIT_EAUTH; // Unknown credential type
 }
 
 // Repository operations
@@ -1503,6 +1533,7 @@ auto LibGit2Backend::fetch(RepoHandle& handle, const std::string& remote_name,
 
     // Set credential callback for authentication
     fetch_opts.callbacks.credentials = credential_callback;
+    fetch_opts.callbacks.payload = this; // Pass backend instance as payload
 
     // Set prune option
     if (prune) {
@@ -1584,6 +1615,7 @@ auto LibGit2Backend::push(RepoHandle& handle, const std::string& remote_name,
 
     // Set credential callback for authentication
     push_opts.callbacks.credentials = credential_callback;
+    push_opts.callbacks.payload = this;
 
     // Determine refspec to push
     std::string push_refspec;
@@ -2770,6 +2802,77 @@ auto LibGit2Backend::rebase(RepoHandle& handle, const std::string& onto) -> Resu
     result.conflicts = std::move(conflicts);
 
     return result;
+}
+
+// Authentication implementation
+
+auto LibGit2Backend::set_credential_callback(CredentialCallback callback) -> void {
+    credential_callback_ = std::move(callback);
+}
+
+auto LibGit2Backend::default_authentication_strategy(const AuthenticationContext& context)
+    -> Result<Credential> {
+
+    // Strategy 1: Try SSH authentication (for SSH URLs)
+    if (context.allowed_types & GIT_CREDENTIAL_SSH_KEY) {
+        std::string username =
+            context.username_from_url.value_or("git"); // Default to "git" for GitHub/GitLab
+
+        // 1a. Try discovered SSH keys from ~/.ssh/
+        auto discovered_key_result = SSHKeyDiscovery::try_discovered_keys(username, context.url);
+        if (discovered_key_result) {
+            return *discovered_key_result;
+        }
+
+        // 1b. Fall back to SSH agent if file-based keys didn't work
+        // This is useful if user has keys loaded in ssh-agent but not in ~/.ssh/
+        return Credential::ssh_agent(std::move(username));
+    }
+
+    // Strategy 2: Try git credential helper (for HTTPS URLs)
+    if (context.allowed_types & GIT_CREDENTIAL_USERPASS_PLAINTEXT) {
+        CredentialHelper helper;
+
+        // Try credential helper first
+        if (helper.is_available()) {
+            auto username_hint = context.username_from_url.value_or("");
+            auto cred_result = helper.fill(context.url, username_hint);
+
+            if (cred_result) {
+                // Success! Store for future approve/reject
+                return *cred_result;
+            }
+            // If helper failed, fall through to interactive prompt
+        }
+
+        // Strategy 3: Fall back to interactive prompt
+        auto prompt_result = InteractivePrompt::prompt_for_credentials(
+            context.url, context.username_from_url.value_or(""));
+
+        if (prompt_result) {
+            return *prompt_result;
+        }
+
+        // Interactive prompt failed - return error with helpful message
+        return std::unexpected(make_error(
+            Error::Code::CredentialRequired,
+            "Authentication required for " + context.url,
+            "No credentials available.\n\n"
+            "Options:\n"
+            "  1. Configure credential helper:\n"
+            "     macOS:  git config --global credential.helper osxkeychain\n"
+            "     Linux:  git config --global credential.helper libsecret\n\n"
+            "  2. Switch to SSH authentication:\n"
+            "     git remote set-url origin git@github.com:user/repo.git\n\n"
+            "  3. Set up SSH key:\n"
+            "     ssh-keygen -t ed25519\n"
+            "     ssh-add ~/.ssh/id_ed25519"));
+    }
+
+    // No suitable authentication method available
+    return std::unexpected(
+        make_error(Error::Code::AuthenticationFailed, "No suitable authentication method available",
+                   "Supported methods: SSH key from agent, HTTPS with credential helper"));
 }
 
 } // namespace repo::backend

@@ -15,6 +15,7 @@
 #include "../domain/stash.hpp"
 #include "../domain/tag.hpp"
 #include "../result.hpp"
+#include "credential_callback.hpp"
 
 namespace repo::backend {
 
@@ -40,6 +41,9 @@ class GitBackend {
     virtual auto is_bare(const RepoHandle& repo) -> bool = 0;
     virtual auto workdir(const RepoHandle& repo) -> std::filesystem::path = 0;
     virtual auto git_dir(const RepoHandle& repo) -> std::filesystem::path = 0;
+
+    // Authentication
+    virtual auto set_credential_callback(CredentialCallback callback) -> void = 0;
 
     // Index operations
     virtual auto get_index(RepoHandle& repo) -> Result<std::unique_ptr<IndexHandle>> = 0;

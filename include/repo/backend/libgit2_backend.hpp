@@ -181,6 +181,9 @@ class LibGit2Backend : public GitBackend {
 
     auto rebase(RepoHandle& repo, const std::string& onto) -> Result<RebaseStats> override;
 
+    // Authentication
+    auto set_credential_callback(CredentialCallback callback) -> void override;
+
   private:
     // Helper to convert libgit2 errors to our Error type
     auto make_libgit2_error(int error_code, const std::string& context) -> Error;
@@ -200,6 +203,18 @@ class LibGit2Backend : public GitBackend {
 
     // Diff conversion
     auto convert_diff_to_domain(git_diff* diff) -> Result<std::vector<domain::FileDiff>>;
+
+    // Default authentication strategy (used if no custom callback provided)
+    auto default_authentication_strategy(const AuthenticationContext& context)
+        -> Result<Credential>;
+
+    // Authentication state
+    std::optional<CredentialCallback> credential_callback_;
+    AuthenticationTracker auth_tracker_;
+
+    // Make auth_tracker_ accessible to credential callback
+    friend auto credential_callback(git_credential**, const char*, const char*, unsigned int,
+                                   void*) -> int;
 };
 
 } // namespace repo::backend

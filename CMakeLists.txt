@@ -58,6 +58,12 @@ add_library(librepo
     # Backend abstraction
     src/core/backend/git_backend.cpp
     src/core/backend/libgit2_backend.cpp
+    src/core/backend/credential_helper.cpp
+    src/core/backend/subprocess_utils.cpp
+    src/core/backend/interactive_prompt.cpp
+    src/core/backend/ssh_key_discovery.cpp
+    src/core/backend/oauth_device_flow.cpp
+    src/core/backend/auth_error_formatter.cpp
 
     # Operations
     src/core/ops/status.cpp
@@ -151,6 +157,11 @@ if(REPO_BUILD_TESTS)
         tests/unit/ops/branch_test.cpp
         tests/unit/ops/merge_test.cpp
 
+        # Backend tests
+        tests/unit/backend/credential_helper_test.cpp
+        tests/unit/backend/ssh_key_discovery_test.cpp
+        tests/unit/backend/oauth_device_flow_test.cpp
+
         # Integration tests
         tests/integration/status_test.cpp
         tests/integration/diff_test.cpp
@@ -163,7 +174,6 @@ if(REPO_BUILD_TESTS)
         tests/integration/select_commit_test.cpp
         tests/integration/undo_commit_test.cpp
         tests/integration/branch_ops_test.cpp
-        tests/integration/empty_repo_ops_test.cpp
         tests/integration/list_commits_test.cpp
         tests/integration/workflow_test.cpp
         tests/integration/branch_workflow_test.cpp

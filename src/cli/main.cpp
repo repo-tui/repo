@@ -19,6 +19,12 @@
 #include <repo/repository.hpp>
 #include <repo/tui/tui.hpp>
 
+// Authentication
+#include <repo/backend/credential_helper.hpp>
+#include <repo/backend/ssh_key_discovery.hpp>
+#include <repo/backend/oauth_device_flow.hpp>
+#include "../core/backend/subprocess_utils.hpp"
+
 #include <CLI/CLI.hpp>
 #include <fmt/color.h>
 #include <fmt/core.h>
@@ -1138,11 +1144,6 @@ auto cmd_remote_push(const std::string& remote, bool force, bool set_upstream) -
     if (!result.has_value()) {
         fmt::print(stderr, fmt::emphasis::bold | red, "Error: ");
         fmt::print(stderr, "{}\n", result.error().message);
-
-        // Print helpful detail if available
-        if (result.error().detail) {
-            fmt::print(stderr, "\n{}\n", *result.error().detail);
-        }
         return 1;
     }
 
@@ -1586,6 +1587,193 @@ auto cmd_stash_drop(int index) -> int {
     fmt::print(green, "✓ ");
     fmt::print("Dropped stash@{{{}}}\n", index);
     return 0;
+}
+
+// Auth commands
+auto cmd_auth_status() -> int {
+    fmt::print(bold | cyan, "Authentication Status\n");
+    fmt::print(bold | cyan, "====================\n\n");
+
+    // Check credential helper
+    fmt::print(bold, "Git Credential Helper:\n");
+    auto helper_check = repo::backend::CredentialHelper().is_available();
+    if (helper_check) {
+        fmt::print(green, "  ✓ ");
+        fmt::print("Configured and available\n");
+
+        // Get the configured helper using modern C++
+        auto git_binary = repo::backend::find_git_binary();
+        if (git_binary) {
+            auto result = repo::backend::run_subprocess(*git_binary + " config --get credential.helper");
+            if (result && result->success()) {
+                std::string helper_name = result->stdout_output;
+                if (!helper_name.empty() && helper_name.back() == '\n') {
+                    helper_name.pop_back();
+                }
+                if (!helper_name.empty()) {
+                    fmt::print("    Helper: {}\n", helper_name);
+                }
+            }
+        }
+    } else {
+        fmt::print(yellow, "  ⚠ ");
+        fmt::print("Not configured\n");
+        fmt::print("    Setup: git config --global credential.helper <helper>\n");
+    }
+
+    // Check SSH keys
+    fmt::print("\n");
+    fmt::print(bold, "SSH Keys:\n");
+    auto ssh_keys = repo::backend::SSHKeyDiscovery::discover_keys();
+    if (ssh_keys.empty()) {
+        fmt::print(yellow, "  ⚠ ");
+        fmt::print("No SSH keys found in ~/.ssh/\n");
+        fmt::print("    Generate: ssh-keygen -t ed25519 -C \"your_email@example.com\"\n");
+    } else {
+        fmt::print(green, "  ✓ ");
+        fmt::print("Found {} key pair(s)\n", ssh_keys.size());
+        for (const auto& key : ssh_keys) {
+            fmt::print("    • {} ({}{})\n",
+                      key.private_key.filename().string(),
+                      key.key_type,
+                      key.is_encrypted ? ", encrypted" : "");
+        }
+    }
+
+    // Check ssh-agent using modern C++
+    fmt::print("\n");
+    fmt::print(bold, "SSH Agent:\n");
+    auto ssh_add = repo::backend::find_binary("ssh-add");
+    if (ssh_add) {
+        auto result = repo::backend::run_subprocess(*ssh_add + " -l");
+        if (result && result->success()) {
+            // Count lines in output (each line = one key)
+            int key_count = 0;
+            std::istringstream iss(result->stdout_output);
+            std::string line;
+            while (std::getline(iss, line)) {
+                if (!line.empty()) {
+                    key_count++;
+                }
+            }
+            if (key_count > 0) {
+                fmt::print(green, "  ✓ ");
+                fmt::print("Running with {} key(s) loaded\n", key_count);
+            } else {
+                fmt::print(gray, "  • ");
+                fmt::print("Not running or no keys loaded\n");
+            }
+        } else {
+            fmt::print(gray, "  • ");
+            fmt::print("Not running or no keys loaded\n");
+        }
+    } else {
+        fmt::print(gray, "  • ");
+        fmt::print("Not running or no keys loaded\n");
+    }
+
+    fmt::print("\n");
+    return 0;
+}
+
+auto cmd_auth_test(const std::string& url) -> int {
+    fmt::print(bold, "Testing authentication for: ");
+    fmt::print("{}\n\n", url);
+
+    // Detect provider
+    auto provider = repo::backend::OAuthDeviceFlow::detect_provider(url);
+    if (provider) {
+        std::string provider_name = *provider == repo::backend::OAuthDeviceFlow::Provider::GitHub
+                                    ? "GitHub" : "GitLab";
+        fmt::print("Provider: {}\n", provider_name);
+    }
+
+    // Determine URL type
+    bool is_ssh = url.find("git@") != std::string::npos || url.find("ssh://") != std::string::npos;
+    bool is_https = url.find("https://") != std::string::npos;
+
+    if (is_ssh) {
+        fmt::print("Protocol: SSH\n\n");
+
+        // Check SSH keys
+        auto keys = repo::backend::SSHKeyDiscovery::discover_keys();
+        if (keys.empty()) {
+            fmt::print(yellow, "⚠ Warning: ");
+            fmt::print("No SSH keys found in ~/.ssh/\n");
+            fmt::print("\nGenerate a key:\n");
+            fmt::print("  ssh-keygen -t ed25519 -C \"your_email@example.com\"\n");
+            return 1;
+        }
+
+        fmt::print(green, "✓ ");
+        fmt::print("Found {} SSH key pair(s)\n", keys.size());
+
+        // Extract host from URL
+        std::string host;
+        if (url.find("git@") == 0) {
+            auto colon_pos = url.find(':');
+            if (colon_pos != std::string::npos) {
+                host = url.substr(4, colon_pos - 4);
+            }
+        }
+
+        if (!host.empty()) {
+            fmt::print("\nTest SSH connection:\n");
+            fmt::print("  ssh -T git@{}\n", host);
+        }
+
+    } else if (is_https) {
+        fmt::print("Protocol: HTTPS\n\n");
+
+        // Check credential helper
+        auto helper = repo::backend::CredentialHelper();
+        if (helper.is_available()) {
+            fmt::print(green, "✓ ");
+            fmt::print("Credential helper is configured\n");
+        } else {
+            fmt::print(yellow, "⚠ Warning: ");
+            fmt::print("No credential helper configured\n");
+            fmt::print("\nSetup credential helper:\n");
+            fmt::print("  macOS:  git config --global credential.helper osxkeychain\n");
+            fmt::print("  Linux:  git config --global credential.helper libsecret\n");
+            return 1;
+        }
+    }
+
+    fmt::print("\n");
+    fmt::print(green, "✓ ");
+    fmt::print("Authentication setup looks good!\n");
+    fmt::print("\nTo actually test the connection, try:\n");
+    fmt::print("  repo remote fetch\n");
+
+    return 0;
+}
+
+auto cmd_auth_clear(const std::string& url) -> int {
+    fmt::print(bold, "Clearing stored credentials for: ");
+    fmt::print("{}\n\n", url);
+
+    auto helper = repo::backend::CredentialHelper();
+    if (!helper.is_available()) {
+        fmt::print(red, "✗ Error: ");
+        fmt::print("No credential helper is configured\n");
+        return 1;
+    }
+
+    auto result = helper.reject(url);
+    if (result) {
+        fmt::print(green, "✓ ");
+        fmt::print("Cleared stored credentials\n");
+        fmt::print("\nNext authentication attempt will prompt for new credentials.\n");
+        return 0;
+    } else {
+        fmt::print(red, "✗ Error: ");
+        fmt::print("{}\n", result.error().message);
+        if (result.error().detail) {
+            fmt::print("\n{}\n", *result.error().detail);
+        }
+        return 1;
+    }
 }
 
 } // anonymous namespace
@@ -2311,6 +2499,47 @@ auto main(int argc, char* argv[]) -> int {
     init_cmd->callback([&init_path, &init_bare, &init_interactive, &init_types]() {
         std::exit(cmd_init(init_path, init_bare, init_interactive, init_types));
     });
+
+    // Auth domain
+    auto* auth_cmd = app.add_subcommand("auth", "Authentication management");
+    auth_cmd->require_subcommand(1);
+    auth_cmd->footer("\nEXAMPLES:\n"
+                     "  repo auth status\n"
+                     "  repo auth test https://github.com/user/repo.git\n"
+                     "  repo auth clear https://github.com/user/repo.git\n");
+
+    // auth status
+    auto* auth_status_cmd = auth_cmd->add_subcommand("status", "Show authentication status");
+    auth_status_cmd->footer("\nEXAMPLES:\n"
+                           "  repo auth status\n"
+                           "\n"
+                           "Shows configured authentication methods:\n"
+                           "  • Git credential helper configuration\n"
+                           "  • SSH keys in ~/.ssh/\n"
+                           "  • SSH agent status\n");
+    auth_status_cmd->callback([]() { std::exit(cmd_auth_status()); });
+
+    // auth test
+    auto* auth_test_cmd = auth_cmd->add_subcommand("test", "Test authentication for a URL");
+    std::string auth_test_url;
+    auth_test_cmd->add_option("url", auth_test_url, "Remote URL to test")->required();
+    auth_test_cmd->footer("\nEXAMPLES:\n"
+                         "  repo auth test https://github.com/user/repo.git\n"
+                         "  repo auth test git@github.com:user/repo.git\n"
+                         "\n"
+                         "Checks if authentication is properly configured for the given URL.\n");
+    auth_test_cmd->callback([&auth_test_url]() { std::exit(cmd_auth_test(auth_test_url)); });
+
+    // auth clear
+    auto* auth_clear_cmd = auth_cmd->add_subcommand("clear", "Clear stored credentials");
+    std::string auth_clear_url;
+    auth_clear_cmd->add_option("url", auth_clear_url, "URL to clear credentials for")->required();
+    auth_clear_cmd->footer("\nEXAMPLES:\n"
+                          "  repo auth clear https://github.com/user/repo.git\n"
+                          "\n"
+                          "Removes stored credentials for the given URL.\n"
+                          "Next authentication will prompt for new credentials.\n");
+    auth_clear_cmd->callback([&auth_clear_url]() { std::exit(cmd_auth_clear(auth_clear_url)); });
 
     // Version command
     auto* version_cmd = app.add_subcommand("version", "Show repo version");

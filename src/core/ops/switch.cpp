@@ -1,15 +1,9 @@
-#include <repo/ops/common.hpp>
 #include <repo/ops/switch.hpp>
 #include <repo/repository.hpp>
 
 namespace repo::ops {
 
 auto switch_branch(Repository& repo, SwitchParams params) -> Result<SwitchResult> {
-    // Check if repository has commits
-    if (auto err = require_commits(repo, "switch branches")) {
-        return std::unexpected(*err);
-    }
-
     // Get current branch name before switching
     auto head_result = repo.backend().get_head(repo.repo_handle());
     std::string previous_branch;
