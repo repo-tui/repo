@@ -90,7 +90,9 @@ TEST_CASE("List commits - limit max count", "[integration][list-commits]") {
     CommitBuilder(temp_repo).with_file("file5.txt", "5").with_message("Commit 5").create();
 
     // Get only the last 3 commits
-    auto result = ops::list_commits(temp_repo.repo(), {.max_count = 3});
+    auto result = ops::list_commits(
+        temp_repo.repo(),
+        {.ref_name = std::nullopt, .max_count = 3, .since = std::nullopt, .until = std::nullopt});
     REQUIRE(result.has_value());
     REQUIRE(result->commits.size() == 3);
 
@@ -170,7 +172,9 @@ TEST_CASE("List commits - from specific branch", "[integration][list-commits]") 
 
     // The current HEAD should still point to main
     // Get commit list from main branch
-    auto main_log = ops::list_commits(temp_repo.repo(), {.ref_name = "HEAD"});
+    auto main_log = ops::list_commits(
+        temp_repo.repo(),
+        {.ref_name = "HEAD", .max_count = std::nullopt, .since = std::nullopt, .until = std::nullopt});
     REQUIRE(main_log.has_value());
     REQUIRE(main_log->commits.size() >= 1);
     REQUIRE(main_log->commits[0].id == main_commit);

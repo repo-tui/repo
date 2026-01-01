@@ -153,11 +153,8 @@ auto CommitBuilder::create() -> domain::ObjectId {
     }
 
     // Commit
-    auto commit_result = ops::commit(repo_.repo(), {
-        .message = message_,
-        .author = std::nullopt,
-        .committer = std::nullopt
-    });
+    auto commit_result = ops::commit(
+        repo_.repo(), {.message = message_, .author = std::nullopt, .committer = std::nullopt});
     if (!commit_result) {
         throw std::runtime_error("Failed to commit: " + commit_result.error().format());
     }
