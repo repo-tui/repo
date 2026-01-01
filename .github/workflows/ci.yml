@@ -24,28 +24,16 @@ jobs:
         run: CLANG_FORMAT=clang-format-21 make format-check
 
   build-and-test:
-    name: Build & Test (${{ matrix.os }}, ${{ matrix.compiler.name }}-${{ matrix.compiler.version }})
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04]
-        compiler:
-          - { name: gcc, version: 14, cc: gcc-14, cxx: g++-14 }
-          - { name: clang, version: 18, cc: clang-18, cxx: clang++-18 }
+    name: Build & Test (Ubuntu, Clang-18)
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install compiler
+      - name: Install Clang-18
         run: |
           sudo apt-get update
-          if [ "${{ matrix.compiler.name }}" = "gcc" ]; then
-            sudo apt-get install -y gcc-14 g++-14
-          else
-            sudo apt-get install -y clang-18
-          fi
+          sudo apt-get install -y clang-18
 
       - name: Install vcpkg
         run: |
@@ -65,8 +53,8 @@ jobs:
 
       - name: Configure CMake
         env:
-          CC: ${{ matrix.compiler.cc }}
-          CXX: ${{ matrix.compiler.cxx }}
+          CC: clang-18
+          CXX: clang++-18
         run: |
           cmake -B build -S . \
             -DCMAKE_BUILD_TYPE=Release \
@@ -82,6 +70,6 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: repo-${{ matrix.os }}-${{ matrix.compiler.name }}-${{ matrix.compiler.version }}
+          name: repo-ubuntu-clang-18
           path: build/repo
           if-no-files-found: error
