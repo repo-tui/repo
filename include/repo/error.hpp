@@ -35,6 +35,8 @@ struct Error {
         // Network errors (0x4000)
         NetworkUnreachable = 0x4000,
         AuthenticationFailed,
+        CredentialRequired,
+        CredentialHelperError,
         RemoteNotFound,
         ServerError,
 
@@ -58,6 +60,10 @@ struct Error {
         FileNotFound = 0x7000,
         PermissionDenied,
         PathAlreadyExists,
+
+        // External command errors (0x8000)
+        ExternalCommandFailed = 0x8000,
+        ExternalCommandNotFound,
     };
 
     Code code;

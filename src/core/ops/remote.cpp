@@ -1,9 +1,6 @@
-#include <repo/ops/branch.hpp>
 #include <repo/ops/merge.hpp>
 #include <repo/ops/remote.hpp>
 #include <repo/repository.hpp>
-
-#include <fmt/format.h>
 
 namespace repo::ops {
 
@@ -71,26 +68,6 @@ auto fetch(Repository& repo, FetchParams params) -> Result<FetchResult> {
 auto push(Repository& repo, PushParams params) -> Result<PushResult> {
     // Use "origin" as default remote if not specified
     std::string remote = params.remote.empty() ? "origin" : params.remote;
-
-    // Check if current branch has upstream configured (unless set_upstream is true)
-    if (!params.set_upstream && params.refspec.empty()) {
-        auto branches_result = list_branches(repo, {.include_remote = false});
-        if (branches_result.has_value()) {
-            if (auto* current = branches_result->current()) {
-                if (!current->upstream.has_value()) {
-                    return std::unexpected(make_error(
-                        Error::Code::InvalidArgument,
-                        fmt::format("No upstream branch configured for '{}'", current->name),
-                        "The current branch has no upstream branch configured.\n\n"
-                        "To push and set an upstream branch:\n"
-                        "  repo push --set-upstream\n"
-                        "  repo push -u\n\n"
-                        "Or set upstream for a specific remote:\n"
-                        "  repo push --set-upstream origin"));
-                }
-            }
-        }
-    }
 
     // Perform push
     auto stats = repo.backend().push(repo.repo_handle(), remote, params.refspec, params.force,
