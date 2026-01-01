@@ -10,12 +10,20 @@ VCPKG_ROOT ?= $(HOME)/vcpkg
 VCPKG_EXISTS := $(shell test -f $(VCPKG_ROOT)/vcpkg && echo 1 || echo 0)
 VCPKG_TOOLCHAIN := $(VCPKG_ROOT)/scripts/buildsystems/vcpkg.cmake
 
+# Detect if ccache is available
+CCACHE_EXISTS := $(shell command -v ccache >/dev/null 2>&1 && echo 1 || echo 0)
+
 # CMake flags
 CMAKE_FLAGS := -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
                -DREPO_BUILD_TESTS=ON
 
 ifeq ($(VCPKG_EXISTS),1)
 CMAKE_FLAGS += -DCMAKE_TOOLCHAIN_FILE=$(VCPKG_TOOLCHAIN)
+endif
+
+ifeq ($(CCACHE_EXISTS),1)
+CMAKE_FLAGS += -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+               -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 endif
 
 # Phony targets
@@ -174,6 +182,10 @@ info:
 	@echo "  vcpkg exists:    $(VCPKG_EXISTS)"
 	@if [ "$(VCPKG_EXISTS)" = "1" ]; then \
 		echo "  vcpkg version:   $$($(VCPKG_ROOT)/vcpkg --version | head -1)"; \
+	fi
+	@echo "  ccache enabled:  $(CCACHE_EXISTS)"
+	@if [ "$(CCACHE_EXISTS)" = "1" ]; then \
+		echo "  ccache version:  $$(ccache --version | head -1)"; \
 	fi
 	@echo ""
 	@if [ -f "$(BUILD_DIR)/CMakeCache.txt" ]; then \

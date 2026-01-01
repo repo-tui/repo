@@ -30,10 +30,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Clang-18
+      - name: Install Clang-18 and ccache
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-18
+          sudo apt-get install -y clang-18 ccache
+
+      - name: Setup ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
 
       - name: Install vcpkg
         run: |
@@ -51,21 +59,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-
 
-      - name: Configure CMake
+      - name: Build
         env:
           CC: clang-18
           CXX: clang++-18
+          BUILD_TYPE: Release
         run: |
-          cmake -B build -S . \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DREPO_BUILD_TESTS=ON \
-            -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake
+          ccache --set-config=max_size=500M
+          make build
 
-      - name: Build
-        run: cmake --build build --config Release
+      - name: Test
+        run: make test
 
-      - name: Run tests
-        run: cd build && ctest --output-on-failure --build-config Release
+      - name: Show ccache stats
+        run: ccache --show-stats
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
