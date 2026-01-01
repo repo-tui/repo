@@ -1,10 +1,16 @@
 #include <repo/error.hpp>
+#include <repo/ops/common.hpp>
 #include <repo/ops/merge.hpp>
 #include <repo/repository.hpp>
 
 namespace repo::ops {
 
 auto merge(Repository& repo, MergeParams params) -> Result<MergeResult> {
+    // Check if repository has commits
+    if (auto err = require_commits(repo, "merge")) {
+        return std::unexpected(*err);
+    }
+
     // Convert strategy enum
     backend::GitBackend::MergeStrategy backend_strategy;
     switch (params.strategy) {
