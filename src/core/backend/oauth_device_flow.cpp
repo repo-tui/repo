@@ -13,8 +13,8 @@ namespace repo::backend {
 
 // Public client IDs for the repo CLI tool
 // These are safe to embed in source code (OAuth spec allows this for native apps)
-// Note: In a real deployment, you would register your own OAuth app
-constexpr const char* GITHUB_CLIENT_ID = "Iv1.b507a08c87ecfe98"; // Placeholder - register your own
+// Using GitHub CLI's OAuth app (publicly available for CLI tools)
+constexpr const char* GITHUB_CLIENT_ID = "178c6fc778ccc68e1d6a"; // GitHub CLI OAuth app
 constexpr const char* GITLAB_CLIENT_ID = "your-gitlab-client-id"; // Placeholder - register your own
 
 auto OAuthDeviceFlow::detect_provider(const std::string& url) -> std::optional<Provider> {
@@ -34,13 +34,15 @@ auto OAuthDeviceFlow::detect_provider(const std::string& url) -> std::optional<P
 auto OAuthDeviceFlow::get_default_scopes(Provider provider) -> std::string {
     switch (provider) {
         case Provider::GitHub:
-            // "repo" scope gives full control of private repositories
-            // Includes read/write access to code, commit statuses, etc.
-            return "repo";
+            // "repo" scope gives full control of private repositories (both personal and org)
+            // "workflow" allows push to repositories with GitHub Actions
+            // Note: "repo" includes access to organization repositories if user is a member
+            return "repo workflow";
 
         case Provider::GitLab:
             // "write_repository" gives read/write access to repositories
-            return "write_repository";
+            // "read_user" allows reading user info
+            return "write_repository read_user";
     }
 
     return "";
@@ -357,8 +359,29 @@ auto OAuthDeviceFlow::authenticate(Provider provider, const std::string& url,
     std::cout << "\n";
 
     // Create credential with OAuth token
-    // For Git, we use the token as the password with a dummy username
-    std::string username = provider == Provider::GitHub ? "oauth2" : "oauth2";
+    // For GitHub, fetch the actual username using the token
+    std::string username = "git";  // Default fallback
+
+    if (provider == Provider::GitHub) {
+        // Try to get GitHub username from API
+        auto curl_binary = find_binary("curl");
+        if (curl_binary) {
+            std::string api_cmd = fmt::format(
+                "{} -s -H \"Authorization: Bearer {}\" -H \"Accept: application/vnd.github.v3+json\" "
+                "https://api.github.com/user 2>&1",
+                *curl_binary, token_result->token);
+
+            auto api_result = run_subprocess(api_cmd);
+            if (api_result && api_result->success()) {
+                auto login = parse_json_field(api_result->stdout_output, "login");
+                if (login) {
+                    username = *login;
+                }
+            }
+        }
+    } else if (provider == Provider::GitLab) {
+        username = "oauth2";
+    }
 
     return Credential::user_password(username, token_result->token);
 }

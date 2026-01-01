@@ -1749,6 +1749,82 @@ auto cmd_auth_test(const std::string& url) -> int {
     return 0;
 }
 
+auto cmd_auth_login(const std::string& provider_name) -> int {
+    fmt::print(bold | cyan, "GitHub Authentication\n");
+    fmt::print(bold | cyan, "====================\n\n");
+
+    // Check if credential helper is available
+    auto helper = repo::backend::CredentialHelper();
+    if (!helper.is_available()) {
+        fmt::print(yellow, "⚠ Warning: ");
+        fmt::print("No credential helper configured. Token will not be saved.\n");
+        fmt::print("Setup: git config --global credential.helper osxkeychain\n\n");
+    }
+
+    // Determine provider (default to GitHub)
+    auto provider = repo::backend::OAuthDeviceFlow::Provider::GitHub;
+    if (provider_name == "gitlab") {
+        provider = repo::backend::OAuthDeviceFlow::Provider::GitLab;
+        fmt::print(bold, "Provider: GitLab\n\n");
+    } else {
+        fmt::print(bold, "Provider: GitHub\n\n");
+    }
+
+    // Start OAuth device flow with default scopes (repo + workflow for GitHub)
+    fmt::print("Starting OAuth device flow...\n");
+    fmt::print("Scopes: {}\n\n",
+              provider == repo::backend::OAuthDeviceFlow::Provider::GitHub
+              ? "repo, workflow" : "write_repository, read_user");
+
+    std::string url = provider == repo::backend::OAuthDeviceFlow::Provider::GitHub
+                     ? "https://github.com"
+                     : "https://gitlab.com";
+
+    // Use default scopes (pass empty string)
+    auto result = repo::backend::OAuthDeviceFlow::authenticate(provider, url, "", "");
+
+    if (!result) {
+        fmt::print(red, "✗ Authentication failed: ");
+        fmt::print("{}\n", result.error().message);
+        if (result.error().detail) {
+            fmt::print("\n{}\n", *result.error().detail);
+        }
+        return 1;
+    }
+
+    auto credential = *result;
+    std::string token = credential.password;  // OAuth token is stored in password field
+    fmt::print(green, "\n✓ Authentication successful!\n");
+    fmt::print("  Logged in as: {}\n\n", credential.username);
+
+    // Store token in credential helper if available
+    if (helper.is_available()) {
+        auto store_result = helper.approve(url, credential);
+        if (store_result) {
+            fmt::print(green, "✓ ");
+            fmt::print("Token saved to credential helper\n");
+            fmt::print("  Username: {}\n", credential.username);
+            fmt::print("  Token: {}...\n", token.substr(0, 8));
+            fmt::print("\nYou can now push/pull from {} repositories.\n",
+                      provider == repo::backend::OAuthDeviceFlow::Provider::GitHub ? "GitHub" : "GitLab");
+        } else {
+            fmt::print(yellow, "⚠ ");
+            fmt::print("Failed to save token: {}\n", store_result.error().message);
+            fmt::print("\nYour credentials:\n");
+            fmt::print("  Username: {}\n", credential.username);
+            fmt::print("  Token: {}\n", token);
+            fmt::print("\nSave it manually or use it as password when prompted.\n");
+        }
+    } else {
+        fmt::print("Your credentials:\n");
+        fmt::print("  Username: {}\n", credential.username);
+        fmt::print("  Token: {}\n", token);
+        fmt::print("\nUse this token as password when git prompts for credentials.\n");
+    }
+
+    return 0;
+}
+
 auto cmd_auth_clear(const std::string& url) -> int {
     fmt::print(bold, "Clearing stored credentials for: ");
     fmt::print("{}\n\n", url);
@@ -2504,9 +2580,23 @@ auto main(int argc, char* argv[]) -> int {
     auto* auth_cmd = app.add_subcommand("auth", "Authentication management");
     auth_cmd->require_subcommand(1);
     auth_cmd->footer("\nEXAMPLES:\n"
+                     "  repo auth login\n"
                      "  repo auth status\n"
                      "  repo auth test https://github.com/user/repo.git\n"
                      "  repo auth clear https://github.com/user/repo.git\n");
+
+    // auth login
+    auto* auth_login_cmd = auth_cmd->add_subcommand("login", "Login to GitHub/GitLab using OAuth");
+    std::string auth_provider = "github";
+    auth_login_cmd->add_option("--provider", auth_provider, "Provider (github or gitlab)")
+        ->default_val("github");
+    auth_login_cmd->footer("\nEXAMPLES:\n"
+                          "  repo auth login\n"
+                          "  repo auth login --provider gitlab\n"
+                          "\n"
+                          "Uses OAuth device flow to authenticate with GitHub or GitLab.\n"
+                          "Token will be saved to your credential helper for future use.\n");
+    auth_login_cmd->callback([&auth_provider]() { std::exit(cmd_auth_login(auth_provider)); });
 
     // auth status
     auto* auth_status_cmd = auth_cmd->add_subcommand("status", "Show authentication status");
