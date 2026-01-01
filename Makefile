@@ -146,16 +146,20 @@ test-integration: build
 # Code formatting
 .PHONY: format format-check
 
+# clang-format binary (can be overridden with CLANG_FORMAT env var)
+CLANG_FORMAT ?= clang-format
+
 ## format: Auto-format code with clang-format
 format:
-	@echo "Formatting code with clang-format..."
-	@find src tests include \( -name '*.cpp' -o -name '*.hpp' \) -exec clang-format -i {} +
+	@echo "Formatting code with $(CLANG_FORMAT)..."
+	@find src tests include \( -name '*.cpp' -o -name '*.hpp' \) -exec $(CLANG_FORMAT) -i {} +
 	@echo "✓ Code formatted"
 
 ## format-check: Check code formatting (fails if unformatted)
 format-check:
-	@echo "Checking code formatting..."
-	@find src tests include \( -name '*.cpp' -o -name '*.hpp' \) -exec clang-format --dry-run --Werror {} +
+	@echo "Checking code formatting with $(CLANG_FORMAT)..."
+	@$(CLANG_FORMAT) --version
+	@find src tests include \( -name '*.cpp' -o -name '*.hpp' \) -exec $(CLANG_FORMAT) --dry-run --Werror {} +
 	@echo "✓ Format check passed"
 
 # Info target
