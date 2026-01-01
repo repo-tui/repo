@@ -17,6 +17,8 @@ auto merge(Repository& repo, MergeParams params) -> Result<MergeResult> {
         case MergeParams::Strategy::FastForwardOnly:
             backend_strategy = backend::GitBackend::MergeStrategy::FastForwardOnly;
             break;
+        default:
+            return std::unexpected(Error{Error::Code::InvalidArgument, "Invalid merge strategy"});
     }
 
     // Delegate to backend
@@ -46,6 +48,8 @@ auto merge(Repository& repo, MergeParams params) -> Result<MergeResult> {
         case backend::GitBackend::MergeStatus::Type::Staged:
             result.status = MergeResult::Status::Staged;
             break;
+        default:
+            return std::unexpected(Error{Error::Code::Internal, "Unknown merge status from backend"});
     }
 
     result.commit_id = backend_result->commit_id;
