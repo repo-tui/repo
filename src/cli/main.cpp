@@ -21,9 +21,8 @@
 
 // Authentication
 #include <repo/backend/credential_helper.hpp>
-#include <repo/backend/ssh_key_discovery.hpp>
 #include <repo/backend/oauth_device_flow.hpp>
-#include "../core/backend/subprocess_utils.hpp"
+#include <repo/backend/ssh_key_discovery.hpp>
 
 #include <CLI/CLI.hpp>
 #include <fmt/color.h>
@@ -33,6 +32,8 @@
 #include <iostream>
 #include <sstream>
 #include <unordered_map>
+
+#include "../core/backend/subprocess_utils.hpp"
 
 using namespace repo;
 
@@ -1604,7 +1605,8 @@ auto cmd_auth_status() -> int {
         // Get the configured helper using modern C++
         auto git_binary = repo::backend::find_git_binary();
         if (git_binary) {
-            auto result = repo::backend::run_subprocess(*git_binary + " config --get credential.helper");
+            auto result =
+                repo::backend::run_subprocess(*git_binary + " config --get credential.helper");
             if (result && result->success()) {
                 std::string helper_name = result->stdout_output;
                 if (!helper_name.empty() && helper_name.back() == '\n') {
@@ -1633,10 +1635,8 @@ auto cmd_auth_status() -> int {
         fmt::print(green, "  ✓ ");
         fmt::print("Found {} key pair(s)\n", ssh_keys.size());
         for (const auto& key : ssh_keys) {
-            fmt::print("    • {} ({}{})\n",
-                      key.private_key.filename().string(),
-                      key.key_type,
-                      key.is_encrypted ? ", encrypted" : "");
+            fmt::print("    • {} ({}{})\n", key.private_key.filename().string(), key.key_type,
+                       key.is_encrypted ? ", encrypted" : "");
         }
     }
 
@@ -1683,8 +1683,8 @@ auto cmd_auth_test(const std::string& url) -> int {
     // Detect provider
     auto provider = repo::backend::OAuthDeviceFlow::detect_provider(url);
     if (provider) {
-        std::string provider_name = *provider == repo::backend::OAuthDeviceFlow::Provider::GitHub
-                                    ? "GitHub" : "GitLab";
+        std::string provider_name =
+            *provider == repo::backend::OAuthDeviceFlow::Provider::GitHub ? "GitHub" : "GitLab";
         fmt::print("Provider: {}\n", provider_name);
     }
 
@@ -1772,13 +1772,13 @@ auto cmd_auth_login(const std::string& provider_name) -> int {
 
     // Start OAuth device flow with default scopes (repo + workflow for GitHub)
     fmt::print("Starting OAuth device flow...\n");
-    fmt::print("Scopes: {}\n\n",
-              provider == repo::backend::OAuthDeviceFlow::Provider::GitHub
-              ? "repo, workflow" : "write_repository, read_user");
+    fmt::print("Scopes: {}\n\n", provider == repo::backend::OAuthDeviceFlow::Provider::GitHub
+                                     ? "repo, workflow"
+                                     : "write_repository, read_user");
 
     std::string url = provider == repo::backend::OAuthDeviceFlow::Provider::GitHub
-                     ? "https://github.com"
-                     : "https://gitlab.com";
+                          ? "https://github.com"
+                          : "https://gitlab.com";
 
     // Use default scopes (pass empty string)
     auto result = repo::backend::OAuthDeviceFlow::authenticate(provider, url, "", "");
@@ -1793,7 +1793,7 @@ auto cmd_auth_login(const std::string& provider_name) -> int {
     }
 
     auto credential = *result;
-    std::string token = credential.password;  // OAuth token is stored in password field
+    std::string token = credential.password; // OAuth token is stored in password field
     fmt::print(green, "\n✓ Authentication successful!\n");
     fmt::print("  Logged in as: {}\n\n", credential.username);
 
@@ -1806,7 +1806,8 @@ auto cmd_auth_login(const std::string& provider_name) -> int {
             fmt::print("  Username: {}\n", credential.username);
             fmt::print("  Token: {}...\n", token.substr(0, 8));
             fmt::print("\nYou can now push/pull from {} repositories.\n",
-                      provider == repo::backend::OAuthDeviceFlow::Provider::GitHub ? "GitHub" : "GitLab");
+                       provider == repo::backend::OAuthDeviceFlow::Provider::GitHub ? "GitHub"
+                                                                                    : "GitLab");
         } else {
             fmt::print(yellow, "⚠ ");
             fmt::print("Failed to save token: {}\n", store_result.error().message);
@@ -2591,22 +2592,22 @@ auto main(int argc, char* argv[]) -> int {
     auth_login_cmd->add_option("--provider", auth_provider, "Provider (github or gitlab)")
         ->default_val("github");
     auth_login_cmd->footer("\nEXAMPLES:\n"
-                          "  repo auth login\n"
-                          "  repo auth login --provider gitlab\n"
-                          "\n"
-                          "Uses OAuth device flow to authenticate with GitHub or GitLab.\n"
-                          "Token will be saved to your credential helper for future use.\n");
+                           "  repo auth login\n"
+                           "  repo auth login --provider gitlab\n"
+                           "\n"
+                           "Uses OAuth device flow to authenticate with GitHub or GitLab.\n"
+                           "Token will be saved to your credential helper for future use.\n");
     auth_login_cmd->callback([&auth_provider]() { std::exit(cmd_auth_login(auth_provider)); });
 
     // auth status
     auto* auth_status_cmd = auth_cmd->add_subcommand("status", "Show authentication status");
     auth_status_cmd->footer("\nEXAMPLES:\n"
-                           "  repo auth status\n"
-                           "\n"
-                           "Shows configured authentication methods:\n"
-                           "  • Git credential helper configuration\n"
-                           "  • SSH keys in ~/.ssh/\n"
-                           "  • SSH agent status\n");
+                            "  repo auth status\n"
+                            "\n"
+                            "Shows configured authentication methods:\n"
+                            "  • Git credential helper configuration\n"
+                            "  • SSH keys in ~/.ssh/\n"
+                            "  • SSH agent status\n");
     auth_status_cmd->callback([]() { std::exit(cmd_auth_status()); });
 
     // auth test
@@ -2614,10 +2615,10 @@ auto main(int argc, char* argv[]) -> int {
     std::string auth_test_url;
     auth_test_cmd->add_option("url", auth_test_url, "Remote URL to test")->required();
     auth_test_cmd->footer("\nEXAMPLES:\n"
-                         "  repo auth test https://github.com/user/repo.git\n"
-                         "  repo auth test git@github.com:user/repo.git\n"
-                         "\n"
-                         "Checks if authentication is properly configured for the given URL.\n");
+                          "  repo auth test https://github.com/user/repo.git\n"
+                          "  repo auth test git@github.com:user/repo.git\n"
+                          "\n"
+                          "Checks if authentication is properly configured for the given URL.\n");
     auth_test_cmd->callback([&auth_test_url]() { std::exit(cmd_auth_test(auth_test_url)); });
 
     // auth clear
@@ -2625,10 +2626,10 @@ auto main(int argc, char* argv[]) -> int {
     std::string auth_clear_url;
     auth_clear_cmd->add_option("url", auth_clear_url, "URL to clear credentials for")->required();
     auth_clear_cmd->footer("\nEXAMPLES:\n"
-                          "  repo auth clear https://github.com/user/repo.git\n"
-                          "\n"
-                          "Removes stored credentials for the given URL.\n"
-                          "Next authentication will prompt for new credentials.\n");
+                           "  repo auth clear https://github.com/user/repo.git\n"
+                           "\n"
+                           "Removes stored credentials for the given URL.\n"
+                           "Next authentication will prompt for new credentials.\n");
     auth_clear_cmd->callback([&auth_clear_url]() { std::exit(cmd_auth_clear(auth_clear_url)); });
 
     // Version command

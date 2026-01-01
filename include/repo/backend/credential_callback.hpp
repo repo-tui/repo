@@ -1,11 +1,11 @@
 #pragma once
 
-#include "credential.hpp"
-#include "../result.hpp"
-
 #include <functional>
 #include <memory>
 #include <unordered_map>
+
+#include "../result.hpp"
+#include "credential.hpp"
 
 namespace repo::backend {
 
@@ -21,9 +21,7 @@ class AuthenticationTracker {
     static constexpr int MAX_ATTEMPTS = 3;
 
     /// Record an authentication attempt for a URL
-    auto record_attempt(const std::string& url) -> int {
-        return ++attempt_counts_[url];
-    }
+    auto record_attempt(const std::string& url) -> int { return ++attempt_counts_[url]; }
 
     /// Get current attempt count for a URL
     [[nodiscard]] auto get_attempt_count(const std::string& url) const -> int {
@@ -32,14 +30,10 @@ class AuthenticationTracker {
     }
 
     /// Reset attempt count for a URL (call on successful authentication)
-    auto reset(const std::string& url) -> void {
-        attempt_counts_.erase(url);
-    }
+    auto reset(const std::string& url) -> void { attempt_counts_.erase(url); }
 
     /// Clear all tracked attempts
-    auto clear() -> void {
-        attempt_counts_.clear();
-    }
+    auto clear() -> void { attempt_counts_.clear(); }
 
     /// Check if maximum attempts reached for a URL
     [[nodiscard]] auto is_max_attempts_reached(const std::string& url) const -> bool {

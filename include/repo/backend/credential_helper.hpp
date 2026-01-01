@@ -1,10 +1,10 @@
 #pragma once
 
-#include "credential.hpp"
-#include "../result.hpp"
-
 #include <string>
 #include <unordered_map>
+
+#include "../result.hpp"
+#include "credential.hpp"
 
 namespace repo::backend {
 
@@ -18,7 +18,7 @@ class CredentialHelper {
         std::string protocol; // e.g., "https" or "ssh"
         std::string host;     // e.g., "github.com"
         std::string port;     // e.g., "443" (empty if default)
-        std::string path;     // e.g., "/user/repo.git" (optional, controlled by credential.useHttpPath)
+        std::string path; // e.g., "/user/repo.git" (optional, controlled by credential.useHttpPath)
         std::string username; // e.g., "git" (from URL if present)
     };
 
@@ -30,8 +30,8 @@ class CredentialHelper {
     /// @param url Full URL (e.g., "https://github.com/user/repo.git")
     /// @param username_hint Username from URL or previous attempt (optional)
     /// @return Credential with username and password/token
-    [[nodiscard]] auto fill(const std::string& url,
-                           const std::string& username_hint = "") -> Result<Credential>;
+    [[nodiscard]] auto fill(const std::string& url, const std::string& username_hint = "")
+        -> Result<Credential>;
 
     /// Store successful credentials
     /// Implements: git credential approve
@@ -80,11 +80,10 @@ class CredentialHelper {
     /// @param include_credentials Whether to include username/password in input
     /// @param cred Credentials to include (if include_credentials is true)
     /// @return Output from credential helper (for "fill") or empty (for "approve"/"reject")
-    [[nodiscard]] auto invoke_credential_helper(
-        const std::string& operation,
-        const URLComponents& components,
-        bool include_credentials = false,
-        const Credential* cred = nullptr) -> Result<std::string>;
+    [[nodiscard]] auto
+    invoke_credential_helper(const std::string& operation, const URLComponents& components,
+                             bool include_credentials = false, const Credential* cred = nullptr)
+        -> Result<std::string>;
 };
 
 } // namespace repo::backend

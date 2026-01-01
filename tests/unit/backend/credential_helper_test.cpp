@@ -1,6 +1,6 @@
-#include <catch2/catch_test_macros.hpp>
-
 #include <repo/backend/credential_helper.hpp>
+
+#include <catch2/catch_test_macros.hpp>
 
 using namespace repo::backend;
 

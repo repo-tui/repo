@@ -1,6 +1,6 @@
-#include <repo/backend/libgit2_backend.hpp>
 #include <repo/backend/credential_helper.hpp>
 #include <repo/backend/interactive_prompt.hpp>
+#include <repo/backend/libgit2_backend.hpp>
 #include <repo/backend/ssh_key_discovery.hpp>
 
 #include <fmt/format.h>
@@ -95,9 +95,8 @@ auto LibGit2Backend::make_libgit2_error(int error_code, const std::string& conte
 
 // Credential callback for authentication
 // This is a C-style callback required by libgit2
-auto credential_callback(git_credential** out, const char* url,
-                        const char* username_from_url, unsigned int allowed_types,
-                        void* payload) -> int {
+auto credential_callback(git_credential** out, const char* url, const char* username_from_url,
+                         unsigned int allowed_types, void* payload) -> int {
 
     // Payload contains pointer to LibGit2Backend instance
     auto* backend = static_cast<LibGit2Backend*>(payload);
@@ -105,8 +104,8 @@ auto credential_callback(git_credential** out, const char* url,
     // Build authentication context
     AuthenticationContext context;
     context.url = url ? url : "";
-    context.username_from_url = username_from_url ? std::optional<std::string>(username_from_url)
-                                                   : std::nullopt;
+    context.username_from_url =
+        username_from_url ? std::optional<std::string>(username_from_url) : std::nullopt;
     context.allowed_types = allowed_types;
     context.attempt_count = backend->auth_tracker_.get_attempt_count(context.url);
     context.is_retry = context.attempt_count > 0;
@@ -141,8 +140,7 @@ auto credential_callback(git_credential** out, const char* url,
                 return GIT_EAUTH;
             }
             const char* username = cred.username.empty() ? "git" : cred.username.c_str();
-            const char* passphrase =
-                cred.ssh_passphrase ? cred.ssh_passphrase->c_str() : nullptr;
+            const char* passphrase = cred.ssh_passphrase ? cred.ssh_passphrase->c_str() : nullptr;
             return git_credential_ssh_key_new(out, username, cred.ssh_public_key_path->c_str(),
                                               cred.ssh_private_key_path->c_str(), passphrase);
         }
@@ -2855,8 +2853,7 @@ auto LibGit2Backend::default_authentication_strategy(const AuthenticationContext
 
         // Interactive prompt failed - return error with helpful message
         return std::unexpected(make_error(
-            Error::Code::CredentialRequired,
-            "Authentication required for " + context.url,
+            Error::Code::CredentialRequired, "Authentication required for " + context.url,
             "No credentials available.\n\n"
             "Options:\n"
             "  1. Configure credential helper:\n"

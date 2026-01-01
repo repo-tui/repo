@@ -1,11 +1,11 @@
 #pragma once
 
-#include "credential.hpp"
-#include "../result.hpp"
-
 #include <filesystem>
-#include <vector>
 #include <string>
+#include <vector>
+
+#include "../result.hpp"
+#include "credential.hpp"
 
 namespace repo::backend {
 
@@ -15,10 +15,10 @@ class SSHKeyDiscovery {
   public:
     /// Discovered SSH key pair
     struct KeyPair {
-        std::filesystem::path public_key;   // Path to public key (.pub)
-        std::filesystem::path private_key;  // Path to private key
-        std::string key_type;                // Key type (rsa, ed25519, ecdsa, etc.)
-        bool is_encrypted;                   // Whether private key is encrypted
+        std::filesystem::path public_key;  // Path to public key (.pub)
+        std::filesystem::path private_key; // Path to private key
+        std::string key_type;              // Key type (rsa, ed25519, ecdsa, etc.)
+        bool is_encrypted;                 // Whether private key is encrypted
 
         /// Priority for trying this key (lower = higher priority)
         /// Based on key type and common naming conventions
@@ -64,14 +64,13 @@ class SSHKeyDiscovery {
     /// @param url URL being accessed (for passphrase prompt context)
     /// @return Credential with SSH key, or error if all keys failed
     [[nodiscard]] static auto try_discovered_keys(const std::string& username,
-                                                   const std::string& url)
-        -> Result<Credential>;
+                                                  const std::string& url) -> Result<Credential>;
 
   private:
     /// Calculate priority score for a key pair
     /// Lower score = higher priority
-    static auto calculate_priority(const std::filesystem::path& path,
-                                   const std::string& key_type) -> int;
+    static auto calculate_priority(const std::filesystem::path& path, const std::string& key_type)
+        -> int;
 
     /// Check if a file exists and is readable
     static auto is_readable_file(const std::filesystem::path& path) -> bool;

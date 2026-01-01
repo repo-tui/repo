@@ -1,6 +1,7 @@
 #include <repo/backend/auth_error_formatter.hpp>
 
 #include <fmt/format.h>
+
 #include <sstream>
 
 namespace repo::backend {
@@ -55,8 +56,7 @@ auto AuthErrorFormatter::credential_required(const Context& context) -> Error {
     return make_error(Error::Code::CredentialRequired, message, detail.str());
 }
 
-auto AuthErrorFormatter::ssh_key_error(const std::string& reason, const Context& context)
-    -> Error {
+auto AuthErrorFormatter::ssh_key_error(const std::string& reason, const Context& context) -> Error {
 
     std::string message = "SSH authentication failed";
     if (!context.url.empty()) {
@@ -70,8 +70,8 @@ auto AuthErrorFormatter::ssh_key_error(const std::string& reason, const Context&
     return make_error(Error::Code::AuthenticationFailed, message, detail.str());
 }
 
-auto AuthErrorFormatter::credential_helper_error(const std::string& reason,
-                                                  const Context& context) -> Error {
+auto AuthErrorFormatter::credential_helper_error(const std::string& reason, const Context& context)
+    -> Error {
     (void)context; // May be used in future for context-specific suggestions
 
     std::string message = "Credential helper error";
@@ -110,90 +110,88 @@ auto AuthErrorFormatter::max_attempts_reached(const Context& context) -> Error {
     return make_error(Error::Code::AuthenticationFailed, message, detail.str());
 }
 
-auto AuthErrorFormatter::generate_suggestions(const Context& context)
-    -> std::vector<std::string> {
+auto AuthErrorFormatter::generate_suggestions(const Context& context) -> std::vector<std::string> {
 
     std::vector<std::string> suggestions;
 
     if (context.is_https) {
         // HTTPS-specific suggestions
         if (!context.credential_helper_available) {
-            suggestions.push_back(
-                "Set up credential helper:\n"
-                "   macOS:  git config --global credential.helper osxkeychain\n"
-                "   Linux:  git config --global credential.helper libsecret");
+            suggestions.push_back("Set up credential helper:\n"
+                                  "   macOS:  git config --global credential.helper osxkeychain\n"
+                                  "   Linux:  git config --global credential.helper libsecret");
         } else {
-            suggestions.push_back(
-                std::string("Check stored credentials:\n"
-                "   git credential reject <<EOF\n"
-                "   protocol=https\n"
-                "   host=") +
-                (context.is_github ? "github.com" : context.is_gitlab ? "gitlab.com" : "yourhost") +
-                "\n"
-                "   EOF");
+            suggestions.push_back(std::string("Check stored credentials:\n"
+                                              "   git credential reject <<EOF\n"
+                                              "   protocol=https\n"
+                                              "   host=") +
+                                  (context.is_github   ? "github.com"
+                                   : context.is_gitlab ? "gitlab.com"
+                                                       : "yourhost") +
+                                  "\n"
+                                  "   EOF");
         }
 
         if (context.is_github || context.is_gitlab) {
             std::string provider = context.is_github ? "GitHub" : "GitLab";
             std::string token_url = context.is_github
-                                       ? "https://github.com/settings/tokens"
-                                       : "https://gitlab.com/-/profile/personal_access_tokens";
+                                        ? "https://github.com/settings/tokens"
+                                        : "https://gitlab.com/-/profile/personal_access_tokens";
 
-            suggestions.push_back(fmt::format(
-                "Create a Personal Access Token:\n"
-                "   Visit: {}\n"
-                "   Scopes: {} (for {})\n"
-                "   Use token as password when prompted",
-                token_url, context.is_github ? "repo" : "write_repository", provider));
+            suggestions.push_back(
+                fmt::format("Create a Personal Access Token:\n"
+                            "   Visit: {}\n"
+                            "   Scopes: {} (for {})\n"
+                            "   Use token as password when prompted",
+                            token_url, context.is_github ? "repo" : "write_repository", provider));
         }
 
-        suggestions.push_back(
-            std::string("Switch to SSH authentication:\n"
-            "   git remote set-url origin git@") +
-            (context.is_github ? "github.com" : context.is_gitlab ? "gitlab.com" : "yourhost") +
-            ":user/repo.git");
+        suggestions.push_back(std::string("Switch to SSH authentication:\n"
+                                          "   git remote set-url origin git@") +
+                              (context.is_github   ? "github.com"
+                               : context.is_gitlab ? "gitlab.com"
+                                                   : "yourhost") +
+                              ":user/repo.git");
 
     } else if (context.is_ssh) {
         // SSH-specific suggestions
         if (!context.ssh_keys_found) {
-            suggestions.push_back(
-                "Generate a new SSH key:\n"
-                "   ssh-keygen -t ed25519 -C \"your_email@example.com\"\n"
-                "   cat ~/.ssh/id_ed25519.pub  # Copy this to your Git provider");
+            suggestions.push_back("Generate a new SSH key:\n"
+                                  "   ssh-keygen -t ed25519 -C \"your_email@example.com\"\n"
+                                  "   cat ~/.ssh/id_ed25519.pub  # Copy this to your Git provider");
         } else {
-            suggestions.push_back(
-                "Check SSH key permissions:\n"
-                "   chmod 600 ~/.ssh/id_ed25519\n"
-                "   chmod 644 ~/.ssh/id_ed25519.pub");
+            suggestions.push_back("Check SSH key permissions:\n"
+                                  "   chmod 600 ~/.ssh/id_ed25519\n"
+                                  "   chmod 644 ~/.ssh/id_ed25519.pub");
 
-            suggestions.push_back(
-                std::string("Test SSH connection:\n"
-                "   ssh -T git@") +
-                (context.is_github ? "github.com" : context.is_gitlab ? "gitlab.com" : "yourhost"));
+            suggestions.push_back(std::string("Test SSH connection:\n"
+                                              "   ssh -T git@") +
+                                  (context.is_github   ? "github.com"
+                                   : context.is_gitlab ? "gitlab.com"
+                                                       : "yourhost"));
 
-            suggestions.push_back(
-                "Add key to ssh-agent:\n"
-                "   eval \"$(ssh-agent -s)\"\n"
-                "   ssh-add ~/.ssh/id_ed25519");
+            suggestions.push_back("Add key to ssh-agent:\n"
+                                  "   eval \"$(ssh-agent -s)\"\n"
+                                  "   ssh-add ~/.ssh/id_ed25519");
         }
 
         if (context.is_github || context.is_gitlab) {
             std::string provider = context.is_github ? "GitHub" : "GitLab";
             std::string keys_url = context.is_github ? "https://github.com/settings/keys"
-                                                      : "https://gitlab.com/-/profile/keys";
+                                                     : "https://gitlab.com/-/profile/keys";
 
-            suggestions.push_back(fmt::format(
-                "Verify your public key is added to {}:\n"
-                "   Visit: {}",
-                provider, keys_url));
+            suggestions.push_back(fmt::format("Verify your public key is added to {}:\n"
+                                              "   Visit: {}",
+                                              provider, keys_url));
         }
     }
 
     // General suggestions
-    suggestions.push_back(
-        std::string("Check network connectivity:\n"
-        "   ping ") +
-        (context.is_github ? "github.com" : context.is_gitlab ? "gitlab.com" : "yourhost"));
+    suggestions.push_back(std::string("Check network connectivity:\n"
+                                      "   ping ") +
+                          (context.is_github   ? "github.com"
+                           : context.is_gitlab ? "gitlab.com"
+                                               : "yourhost"));
 
     return suggestions;
 }
@@ -290,7 +288,9 @@ auto AuthErrorFormatter::get_oauth_instructions(const Context& context) -> std::
 
     instructions << "2. Use SSH instead:\n";
     instructions << "   git remote set-url origin git@";
-    instructions << (context.is_github ? "github.com" : context.is_gitlab ? "gitlab.com" : "yourhost");
+    instructions << (context.is_github   ? "github.com"
+                     : context.is_gitlab ? "gitlab.com"
+                                         : "yourhost");
     instructions << ":user/repo.git\n\n";
 
     instructions << "3. Set up credential helper (stores tokens):\n";
