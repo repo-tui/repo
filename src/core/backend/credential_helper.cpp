@@ -1,10 +1,9 @@
 #include <repo/backend/credential_helper.hpp>
-
-#include "subprocess_utils.hpp"
-
 #include <repo/error.hpp>
 
 #include <sstream>
+
+#include "subprocess_utils.hpp"
 
 namespace repo::backend {
 
@@ -37,15 +36,15 @@ auto CredentialHelper::fill(const std::string& url, const std::string& username_
     auto password_it = creds.find("password");
 
     if (username_it == creds.end() || password_it == creds.end()) {
-        return std::unexpected(make_error(
-            Error::Code::CredentialRequired,
-            "Git credential helper did not return username/password",
-            "The credential helper returned an incomplete response.\n\n"
-            "Ensure your credential helper is properly configured:\n"
-            "  git config --global credential.helper <helper>\n\n"
-            "Available helpers:\n"
-            "  macOS:  osxkeychain\n"
-            "  Linux:  libsecret, cache, store"));
+        return std::unexpected(
+            make_error(Error::Code::CredentialRequired,
+                       "Git credential helper did not return username/password",
+                       "The credential helper returned an incomplete response.\n\n"
+                       "Ensure your credential helper is properly configured:\n"
+                       "  git config --global credential.helper <helper>\n\n"
+                       "Available helpers:\n"
+                       "  macOS:  osxkeychain\n"
+                       "  Linux:  libsecret, cache, store"));
     }
 
     return Credential::user_password(username_it->second, password_it->second);
@@ -153,8 +152,8 @@ auto CredentialHelper::parse_url(const std::string& url) -> Result<URLComponents
 
 auto CredentialHelper::invoke_credential_helper(const std::string& operation,
                                                 const URLComponents& components,
-                                                bool include_credentials,
-                                                const Credential* cred) -> Result<std::string> {
+                                                bool include_credentials, const Credential* cred)
+    -> Result<std::string> {
 
     // Build input for credential helper
     std::string input = build_credential_input(components, include_credentials, cred);
@@ -176,11 +175,10 @@ auto CredentialHelper::invoke_credential_helper(const std::string& operation,
 
     // Check exit code for errors
     if (result->exit_code != 0) {
-        return std::unexpected(make_error(
-            Error::Code::CredentialHelperError,
-            "Git credential " + operation + " failed",
-            "Exit code: " + std::to_string(result->exit_code) +
-                "\nStderr: " + result->stderr_output));
+        return std::unexpected(make_error(Error::Code::CredentialHelperError,
+                                          "Git credential " + operation + " failed",
+                                          "Exit code: " + std::to_string(result->exit_code) +
+                                              "\nStderr: " + result->stderr_output));
     }
 
     return result->stdout_output;
@@ -212,8 +210,8 @@ auto CredentialHelper::parse_credential_output(const std::string& output)
 }
 
 auto CredentialHelper::build_credential_input(const URLComponents& components,
-                                              bool include_credentials,
-                                              const Credential* cred) -> std::string {
+                                              bool include_credentials, const Credential* cred)
+    -> std::string {
     std::ostringstream input;
 
     // Build input in git credential protocol format
@@ -236,8 +234,7 @@ auto CredentialHelper::build_credential_input(const URLComponents& components,
 
     if (include_credentials && cred) {
         // Include credentials for approve/reject operations
-        if (cred->type == CredentialType::UserPassword ||
-            cred->type == CredentialType::OAuth) {
+        if (cred->type == CredentialType::UserPassword || cred->type == CredentialType::OAuth) {
             if (!cred->username.empty()) {
                 input << "username=" << cred->username << "\n";
             }

@@ -13,44 +13,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install clang-format
-        run: sudo apt-get update && sudo apt-get install -y clang-format
+      - name: Install clang-format-21
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          sudo add-apt-repository -y "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
+          sudo apt-get update
+          sudo apt-get install -y clang-format-21
 
       - name: Check code formatting
-        run: make format-check
+        run: CLANG_FORMAT=clang-format-21 make format-check
 
   build-and-test:
-    name: Build & Test (${{ matrix.os }}, ${{ matrix.compiler.name }}-${{ matrix.compiler.version }})
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-14]
-        compiler:
-          - { name: gcc, version: 14, cc: gcc-14, cxx: g++-14 }
-          - { name: clang, version: 18, cc: clang-18, cxx: clang++-18 }
-        exclude:
-          # macOS doesn't need GCC testing
-          - os: macos-14
-            compiler: { name: gcc }
+    name: Build & Test (Ubuntu, GCC-14)
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install compiler (Ubuntu)
-        if: matrix.os == 'ubuntu-24.04'
+      - name: Install GCC-14 and ccache
         run: |
           sudo apt-get update
-          if [ "${{ matrix.compiler.name }}" = "gcc" ]; then
-            sudo apt-get install -y gcc-14 g++-14
-          else
-            sudo apt-get install -y clang-18
-          fi
+          sudo apt-get install -y gcc-14 g++-14 ccache
 
-      - name: Select Xcode version (macOS)
-        if: matrix.os == 'macos-14'
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+      - name: Setup ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-
 
       - name: Install vcpkg
         run: |
@@ -68,25 +59,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-
 
-      - name: Configure CMake
-        env:
-          CC: ${{ matrix.compiler.cc }}
-          CXX: ${{ matrix.compiler.cxx }}
-        run: |
-          cmake -B build -S . \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DREPO_BUILD_TESTS=ON \
-            -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake
-
       - name: Build
-        run: cmake --build build --config Release
+        env:
+          CC: gcc-14
+          CXX: g++-14
+          BUILD_TYPE: Release
+        run: |
+          ccache --set-config=max_size=500M
+          make build
 
-      - name: Run tests
-        run: cd build && ctest --output-on-failure --build-config Release
+      - name: Test
+        run: make test
+
+      - name: Show ccache stats
+        run: ccache --show-stats
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: repo-${{ matrix.os }}-${{ matrix.compiler.name }}-${{ matrix.compiler.version }}
+          name: repo-ubuntu-gcc-14
           path: build/repo
           if-no-files-found: error

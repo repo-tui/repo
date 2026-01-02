@@ -64,7 +64,8 @@ TEST_CASE("Tag - create annotated tag", "[integration][tag]") {
     // Create annotated tag
     domain::Signature tagger{.name = "Test Tagger",
                              .email = "tagger@example.com",
-                             .when = std::chrono::system_clock::now()};
+                             .when = std::chrono::system_clock::now(),
+                             .tz_offset = std::chrono::minutes{0}};
 
     auto create_result = ops::create_tag(temp_repo.repo(), {.name = "v1.0.0",
                                                             .target = commit_oid,
@@ -105,7 +106,8 @@ TEST_CASE("Tag - create multiple tags", "[integration][tag]") {
 
     domain::Signature tagger{.name = "Test Tagger",
                              .email = "tagger@example.com",
-                             .when = std::chrono::system_clock::now()};
+                             .when = std::chrono::system_clock::now(),
+                             .tz_offset = std::chrono::minutes{0}};
 
     // Create multiple tags
     ops::create_tag(temp_repo.repo(), {.name = "v1.0.0",
@@ -228,7 +230,8 @@ TEST_CASE("Tag - create annotated tag with empty tagger name fails", "[integrati
     // Try to create annotated tag with empty tagger name
     domain::Signature tagger{.name = "", // Empty name
                              .email = "tagger@example.com",
-                             .when = std::chrono::system_clock::now()};
+                             .when = std::chrono::system_clock::now(),
+                             .tz_offset = std::chrono::minutes{0}};
 
     auto result = ops::create_tag(temp_repo.repo(), {.name = "v1.0.0",
                                                      .target = commit_oid,
@@ -252,7 +255,8 @@ TEST_CASE("Tag - create annotated tag with empty tagger email fails", "[integrat
     // Try to create annotated tag with empty tagger email
     domain::Signature tagger{.name = "Test Tagger",
                              .email = "", // Empty email
-                             .when = std::chrono::system_clock::now()};
+                             .when = std::chrono::system_clock::now(),
+                             .tz_offset = std::chrono::minutes{0}};
 
     auto result = ops::create_tag(temp_repo.repo(), {.name = "v1.0.0",
                                                      .target = commit_oid,

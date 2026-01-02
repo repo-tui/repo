@@ -44,7 +44,7 @@ TEST_CASE("Merge - fast-forward merge", "[integration][merge]") {
     REQUIRE(ops::switch_branch(temp.repo(), {.branch_name = main_branch}).has_value());
 
     // Merge feature into main (should be fast-forward)
-    auto merge_result = ops::merge(temp.repo(), {.source = "feature"});
+    auto merge_result = ops::merge(temp.repo(), {.source = "feature", .message = ""});
     REQUIRE(merge_result.has_value());
     CHECK(merge_result->status == ops::MergeResult::Status::FastForward);
     CHECK(!merge_result->commit_id.empty());
@@ -84,7 +84,7 @@ TEST_CASE("Merge - no fast-forward creates merge commit", "[integration][merge]"
     CommitBuilder(temp).with_file("file3.txt", "main file\n").with_message("Add on main").create();
 
     // Merge feature into main (cannot fast-forward, should create merge commit)
-    auto merge_result = ops::merge(temp.repo(), {.source = "feature"});
+    auto merge_result = ops::merge(temp.repo(), {.source = "feature", .message = ""});
     REQUIRE(merge_result.has_value());
     CHECK(merge_result->status == ops::MergeResult::Status::MergeCommit);
     CHECK(!merge_result->commit_id.empty());
@@ -108,7 +108,7 @@ TEST_CASE("Merge - already up to date", "[integration][merge]") {
     REQUIRE(ops::create_branch(temp.repo(), {.name = "feature", .target = commit1}).has_value());
 
     // Try to merge (should be up to date)
-    auto merge_result = ops::merge(temp.repo(), {.source = "feature"});
+    auto merge_result = ops::merge(temp.repo(), {.source = "feature", .message = ""});
     REQUIRE(merge_result.has_value());
     CHECK(merge_result->status == ops::MergeResult::Status::UpToDate);
 }

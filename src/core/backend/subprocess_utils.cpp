@@ -3,8 +3,9 @@
 #include <repo/error.hpp>
 
 #include <array>
-#include <sys/wait.h>
 #include <unistd.h>
+
+#include <sys/wait.h>
 
 namespace repo::backend {
 
@@ -124,8 +125,9 @@ auto run_subprocess(const std::string& command, const std::string& input, int ti
 
 auto find_git_binary() -> Result<std::string> {
     // Try common Unix/macOS locations
-    std::vector<std::string> paths = {"/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git",
-                                      "git" // In PATH
+    std::vector<std::string> paths = {
+        "/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git",
+        "git" // In PATH
     };
 
     for (const auto& path : paths) {
@@ -134,14 +136,14 @@ auto find_git_binary() -> Result<std::string> {
         }
     }
 
-    return std::unexpected(make_error(
-        Error::Code::CredentialHelperError,
-        "Git binary not found. Please ensure git is installed and in PATH.",
-        "Git is required for credential helper integration.\n\n"
-        "Install git:\n"
-        "  macOS:  brew install git\n"
-        "  Ubuntu: sudo apt-get install git\n"
-        "  Fedora: sudo dnf install git"));
+    return std::unexpected(
+        make_error(Error::Code::CredentialHelperError,
+                   "Git binary not found. Please ensure git is installed and in PATH.",
+                   "Git is required for credential helper integration.\n\n"
+                   "Install git:\n"
+                   "  macOS:  brew install git\n"
+                   "  Ubuntu: sudo apt-get install git\n"
+                   "  Fedora: sudo dnf install git"));
 }
 
 auto find_binary(const std::string& name) -> Result<std::string> {
@@ -159,11 +161,11 @@ auto find_binary(const std::string& name) -> Result<std::string> {
     }
 
     // Not found
-    return std::unexpected(make_error(
-        Error::Code::ExternalCommandFailed, name + " not found",
-        name + " is required but could not be found in PATH.\n\n"
-               "Please install " +
-            name + " and ensure it's in your PATH."));
+    return std::unexpected(make_error(Error::Code::ExternalCommandFailed, name + " not found",
+                                      name +
+                                          " is required but could not be found in PATH.\n\n"
+                                          "Please install " +
+                                          name + " and ensure it's in your PATH."));
 }
 
 auto is_command_available(const std::string& command) -> bool {

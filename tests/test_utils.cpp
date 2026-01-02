@@ -106,7 +106,8 @@ auto TempRepo::run_git(const std::vector<std::string>& args) -> std::string {
     cmd += " 2>&1"; // Capture stderr too
 
     // NOLINTNEXTLINE(cert-env33-c)
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+    using FileDeleter = int (*)(FILE*);
+    std::unique_ptr<FILE, FileDeleter> pipe(popen(cmd.c_str(), "r"), pclose);
     if (!pipe) {
         throw std::runtime_error("Failed to run git command");
     }
@@ -152,7 +153,8 @@ auto CommitBuilder::create() -> domain::ObjectId {
     }
 
     // Commit
-    auto commit_result = ops::commit(repo_.repo(), {.message = message_});
+    auto commit_result = ops::commit(
+        repo_.repo(), {.message = message_, .author = std::nullopt, .committer = std::nullopt});
     if (!commit_result) {
         throw std::runtime_error("Failed to commit: " + commit_result.error().format());
     }

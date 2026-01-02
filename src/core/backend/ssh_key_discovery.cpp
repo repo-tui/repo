@@ -1,11 +1,11 @@
-#include <repo/backend/ssh_key_discovery.hpp>
 #include <repo/backend/interactive_prompt.hpp>
+#include <repo/backend/ssh_key_discovery.hpp>
 #include <repo/error.hpp>
 
-#include <fstream>
 #include <algorithm>
-#include <unistd.h>
+#include <fstream>
 #include <pwd.h>
+#include <unistd.h>
 
 namespace repo::backend {
 
@@ -242,15 +242,14 @@ auto SSHKeyDiscovery::try_discovered_keys(const std::string& username, const std
     auto keys = discover_keys();
 
     if (keys.empty()) {
-        return std::unexpected(make_error(
-            Error::Code::CredentialRequired,
-            "No SSH keys found in ~/.ssh/ for " + url,
-            "No SSH key pairs found.\n\n"
-            "To generate a new SSH key:\n"
-            "  ssh-keygen -t ed25519 -C \"your_email@example.com\"\n\n"
-            "Then add the public key to your Git hosting service:\n"
-            "  cat ~/.ssh/id_ed25519.pub\n\n"
-            "Or use HTTPS authentication instead."));
+        return std::unexpected(
+            make_error(Error::Code::CredentialRequired, "No SSH keys found in ~/.ssh/ for " + url,
+                       "No SSH key pairs found.\n\n"
+                       "To generate a new SSH key:\n"
+                       "  ssh-keygen -t ed25519 -C \"your_email@example.com\"\n\n"
+                       "Then add the public key to your Git hosting service:\n"
+                       "  cat ~/.ssh/id_ed25519.pub\n\n"
+                       "Or use HTTPS authentication instead."));
     }
 
     // Try each key in priority order
@@ -284,16 +283,16 @@ auto SSHKeyDiscovery::try_discovered_keys(const std::string& username, const std
 
     // All keys failed or were skipped
     return std::unexpected(make_error(
-        Error::Code::CredentialRequired,
-        "Could not authenticate with any SSH key for " + url,
-        "Tried " + std::to_string(keys.size()) + " SSH key(s) but none worked.\n\n"
-                                                  "Possible issues:\n"
-                                                  "  - Keys are encrypted but no passphrase provided (non-interactive mode)\n"
-                                                  "  - Public key not added to Git hosting service\n"
-                                                  "  - Wrong key permissions (should be 600 for private key)\n\n"
-                                                  "Try using ssh-agent:\n"
-                                                  "  ssh-add ~/.ssh/id_ed25519\n\n"
-                                                  "Or use HTTPS authentication instead."));
+        Error::Code::CredentialRequired, "Could not authenticate with any SSH key for " + url,
+        "Tried " + std::to_string(keys.size()) +
+            " SSH key(s) but none worked.\n\n"
+            "Possible issues:\n"
+            "  - Keys are encrypted but no passphrase provided (non-interactive mode)\n"
+            "  - Public key not added to Git hosting service\n"
+            "  - Wrong key permissions (should be 600 for private key)\n\n"
+            "Try using ssh-agent:\n"
+            "  ssh-add ~/.ssh/id_ed25519\n\n"
+            "Or use HTTPS authentication instead."));
 }
 
 } // namespace repo::backend

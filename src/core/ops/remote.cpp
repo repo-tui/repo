@@ -167,6 +167,10 @@ auto pull(Repository& repo, PullParams params) -> Result<PullResult> {
             result.merge_type = "staged";
             result.updated = false;
             break;
+        default:
+            result.merge_type = "unknown";
+            result.updated = false;
+            break;
     }
 
     return result;

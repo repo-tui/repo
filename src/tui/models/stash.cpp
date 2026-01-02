@@ -523,7 +523,8 @@ auto cmd_create_stash(std::string repo_path, std::string message, std::string st
                            .message = message,
                            .stasher = domain::Signature{.name = stasher_name,
                                                         .email = stasher_email,
-                                                        .when = std::chrono::system_clock::now()},
+                                                        .when = std::chrono::system_clock::now(),
+                                                        .tz_offset = std::chrono::minutes{0}},
                            .include_untracked = include_untracked,
                            .keep_index = keep_index});
 

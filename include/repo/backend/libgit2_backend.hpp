@@ -213,8 +213,8 @@ class LibGit2Backend : public GitBackend {
     AuthenticationTracker auth_tracker_;
 
     // Make auth_tracker_ accessible to credential callback
-    friend auto credential_callback(git_credential**, const char*, const char*, unsigned int,
-                                   void*) -> int;
+    friend auto credential_callback(git_credential**, const char*, const char*, unsigned int, void*)
+        -> int;
 };
 
 } // namespace repo::backend

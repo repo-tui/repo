@@ -1,20 +1,21 @@
-#include <repo/backend/oauth_device_flow.hpp>
 #include <repo/backend/interactive_prompt.hpp>
+#include <repo/backend/oauth_device_flow.hpp>
 #include <repo/error.hpp>
 
-#include "subprocess_utils.hpp"
-
 #include <fmt/format.h>
+
 #include <iostream>
-#include <thread>
 #include <regex>
+#include <thread>
+
+#include "subprocess_utils.hpp"
 
 namespace repo::backend {
 
 // Public client IDs for the repo CLI tool
 // These are safe to embed in source code (OAuth spec allows this for native apps)
 // Using GitHub CLI's OAuth app (publicly available for CLI tools)
-constexpr const char* GITHUB_CLIENT_ID = "178c6fc778ccc68e1d6a"; // GitHub CLI OAuth app
+constexpr const char* GITHUB_CLIENT_ID = "178c6fc778ccc68e1d6a";  // GitHub CLI OAuth app
 constexpr const char* GITLAB_CLIENT_ID = "your-gitlab-client-id"; // Placeholder - register your own
 
 auto OAuthDeviceFlow::detect_provider(const std::string& url) -> std::optional<Provider> {
@@ -58,8 +59,8 @@ auto OAuthDeviceFlow::get_client_id(Provider provider) -> std::string {
     return "";
 }
 
-auto OAuthDeviceFlow::get_device_code_endpoint(Provider provider,
-                                                const std::string& gitlab_host) -> std::string {
+auto OAuthDeviceFlow::get_device_code_endpoint(Provider provider, const std::string& gitlab_host)
+    -> std::string {
     switch (provider) {
         case Provider::GitHub:
             return "https://github.com/login/device/code";
@@ -88,22 +89,20 @@ auto OAuthDeviceFlow::http_post(const std::string& url, const std::string& body,
 
     auto curl_binary = find_binary("curl");
     if (!curl_binary) {
-        return std::unexpected(make_error(Error::Code::ExternalCommandFailed,
-                                         "curl not found",
-                                         "OAuth device flow requires curl to be installed.\n\n"
-                                         "Install curl:\n"
-                                         "  macOS:  brew install curl (or use system curl)\n"
-                                         "  Linux:  apt-get install curl / yum install curl"));
+        return std::unexpected(make_error(Error::Code::ExternalCommandFailed, "curl not found",
+                                          "OAuth device flow requires curl to be installed.\n\n"
+                                          "Install curl:\n"
+                                          "  macOS:  brew install curl (or use system curl)\n"
+                                          "  Linux:  apt-get install curl / yum install curl"));
     }
 
     // Build curl command
-    std::string command = fmt::format(
-        "{} -X POST "
-        "-H \"Content-Type: {}\" "
-        "-H \"Accept: application/json\" "
-        "-d '{}' "
-        "\"{}\" 2>&1",
-        *curl_binary, content_type, body, url);
+    std::string command = fmt::format("{} -X POST "
+                                      "-H \"Content-Type: {}\" "
+                                      "-H \"Accept: application/json\" "
+                                      "-d '{}' "
+                                      "\"{}\" 2>&1",
+                                      *curl_binary, content_type, body, url);
 
     auto result = run_subprocess(command);
     if (!result) {
@@ -111,11 +110,9 @@ auto OAuthDeviceFlow::http_post(const std::string& url, const std::string& body,
     }
 
     if (result->exit_code != 0) {
-        return std::unexpected(make_error(
-            Error::Code::NetworkUnreachable,
-            "HTTP request failed",
-            fmt::format("curl exited with code {}\nOutput: {}", result->exit_code,
-                       result->stderr_output)));
+        return std::unexpected(make_error(Error::Code::NetworkUnreachable, "HTTP request failed",
+                                          fmt::format("curl exited with code {}\nOutput: {}",
+                                                      result->exit_code, result->stderr_output)));
     }
 
     return result->stdout_output;
@@ -190,9 +187,9 @@ auto OAuthDeviceFlow::request_device_code(Provider provider, const std::string& 
     auto interval = parse_json_int_field(*response, "interval");
 
     if (!device_code || !user_code || !verification_uri || !expires_in || !interval) {
-        return std::unexpected(make_error(
-            Error::Code::AuthenticationFailed, "Failed to parse device code response",
-            "Response: " + *response));
+        return std::unexpected(make_error(Error::Code::AuthenticationFailed,
+                                          "Failed to parse device code response",
+                                          "Response: " + *response));
     }
 
     return DeviceCode{
@@ -226,17 +223,18 @@ auto OAuthDeviceFlow::poll_for_token(Provider provider, const DeviceCode& device
         // Build request body
         std::string body;
         if (provider == Provider::GitHub) {
-            body = fmt::format("client_id={}&device_code={}&grant_type=urn:ietf:params:oauth:grant-type:device_code",
-                              client_id, device_code.device_code);
+            body = fmt::format("client_id={}&device_code={}&grant_type=urn:ietf:params:oauth:grant-"
+                               "type:device_code",
+                               client_id, device_code.device_code);
         } else {
-            body = fmt::format(
-                "{{\"client_id\":\"{}\",\"device_code\":\"{}\",\"grant_type\":\"urn:ietf:params:oauth:grant-type:device_code\"}}",
-                client_id, device_code.device_code);
+            body = fmt::format("{{\"client_id\":\"{}\",\"device_code\":\"{}\",\"grant_type\":\"urn:"
+                               "ietf:params:oauth:grant-type:device_code\"}}",
+                               client_id, device_code.device_code);
         }
 
         // Make request
-        auto content_type = provider == Provider::GitHub ? "application/x-www-form-urlencoded"
-                                                          : "application/json";
+        auto content_type =
+            provider == Provider::GitHub ? "application/x-www-form-urlencoded" : "application/json";
 
         auto response = http_post(endpoint, body, content_type);
         if (!response) {
@@ -259,14 +257,12 @@ auto OAuthDeviceFlow::poll_for_token(Provider provider, const DeviceCode& device
                 continue;
             } else if (*error == "expired_token") {
                 return std::unexpected(
-                    make_error(Error::Code::AuthenticationFailed,
-                              "Device code expired",
-                              "The device code expired before authentication was completed.\n"
-                              "Please try again."));
+                    make_error(Error::Code::AuthenticationFailed, "Device code expired",
+                               "The device code expired before authentication was completed.\n"
+                               "Please try again."));
             } else if (*error == "access_denied") {
-                return std::unexpected(
-                    make_error(Error::Code::AuthenticationFailed, "Access denied",
-                              "User denied authorization."));
+                return std::unexpected(make_error(Error::Code::AuthenticationFailed,
+                                                  "Access denied", "User denied authorization."));
             } else {
                 return std::unexpected(make_error(Error::Code::AuthenticationFailed,
                                                   "OAuth error: " + *error,
@@ -293,21 +289,20 @@ auto OAuthDeviceFlow::poll_for_token(Provider provider, const DeviceCode& device
     }
 
     // Timeout
-    return std::unexpected(make_error(
-        Error::Code::AuthenticationFailed, "Authentication timeout",
-        "User did not complete authentication within the time limit."));
+    return std::unexpected(
+        make_error(Error::Code::AuthenticationFailed, "Authentication timeout",
+                   "User did not complete authentication within the time limit."));
 }
 
 auto OAuthDeviceFlow::authenticate(Provider provider, const std::string& url,
-                                  const std::string& scopes, const std::string& gitlab_host)
+                                   const std::string& scopes, const std::string& gitlab_host)
     -> Result<Credential> {
 
     // Check if we're in interactive mode
     auto mode = InteractivePrompt::detect_mode();
     if (mode != InteractivePrompt::Mode::CLI) {
         return std::unexpected(make_error(
-            Error::Code::CredentialRequired,
-            "OAuth device flow requires interactive mode",
+            Error::Code::CredentialRequired, "OAuth device flow requires interactive mode",
             "OAuth device flow cannot be used in TUI or non-interactive mode.\n\n"
             "Options:\n"
             "  1. Use credential helper:\n"
@@ -360,16 +355,16 @@ auto OAuthDeviceFlow::authenticate(Provider provider, const std::string& url,
 
     // Create credential with OAuth token
     // For GitHub, fetch the actual username using the token
-    std::string username = "git";  // Default fallback
+    std::string username = "git"; // Default fallback
 
     if (provider == Provider::GitHub) {
         // Try to get GitHub username from API
         auto curl_binary = find_binary("curl");
         if (curl_binary) {
-            std::string api_cmd = fmt::format(
-                "{} -s -H \"Authorization: Bearer {}\" -H \"Accept: application/vnd.github.v3+json\" "
-                "https://api.github.com/user 2>&1",
-                *curl_binary, token_result->token);
+            std::string api_cmd = fmt::format("{} -s -H \"Authorization: Bearer {}\" -H \"Accept: "
+                                              "application/vnd.github.v3+json\" "
+                                              "https://api.github.com/user 2>&1",
+                                              *curl_binary, token_result->token);
 
             auto api_result = run_subprocess(api_cmd);
             if (api_result && api_result->success()) {

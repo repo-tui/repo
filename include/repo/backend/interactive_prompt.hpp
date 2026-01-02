@@ -1,9 +1,9 @@
 #pragma once
 
-#include "credential.hpp"
-#include "../result.hpp"
-
 #include <string>
+
+#include "../result.hpp"
+#include "credential.hpp"
 
 namespace repo::backend {
 
@@ -13,8 +13,8 @@ class InteractivePrompt {
   public:
     /// Prompt mode detection
     enum class Mode {
-        CLI, // Running in CLI mode (can prompt user)
-        TUI, // Running in TUI mode (cannot easily prompt)
+        CLI,           // Running in CLI mode (can prompt user)
+        TUI,           // Running in TUI mode (cannot easily prompt)
         NonInteractive // Running non-interactively (e.g., in script)
     };
 

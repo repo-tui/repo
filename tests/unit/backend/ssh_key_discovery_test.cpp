@@ -1,6 +1,6 @@
-#include <catch2/catch_test_macros.hpp>
-
 #include <repo/backend/ssh_key_discovery.hpp>
+
+#include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -24,7 +24,7 @@ class TempSSHDir {
     auto get_path() const -> std::filesystem::path { return path; }
 
     void create_key_pair(const std::string& name, const std::string& type,
-                        bool encrypt_private = false) {
+                         bool encrypt_private = false) {
         // Create public key
         auto pub_path = path / (name + ".pub");
         std::ofstream pub(pub_path);
@@ -50,7 +50,7 @@ class TempSSHDir {
 
         // Set proper permissions (600 for private key)
         std::filesystem::permissions(priv_path, std::filesystem::perms::owner_read |
-                                                     std::filesystem::perms::owner_write);
+                                                    std::filesystem::perms::owner_write);
     }
 
   private:
@@ -100,8 +100,7 @@ TEST_CASE("SSHKeyDiscovery - encryption detection", "[ssh_key_discovery]") {
     SECTION("Detect encrypted key") {
         temp_dir.create_key_pair("id_encrypted", "ed25519", true);
 
-        bool encrypted =
-            SSHKeyDiscovery::is_key_encrypted(temp_dir.get_path() / "id_encrypted");
+        bool encrypted = SSHKeyDiscovery::is_key_encrypted(temp_dir.get_path() / "id_encrypted");
         REQUIRE(encrypted);
     }
 
@@ -113,8 +112,7 @@ TEST_CASE("SSHKeyDiscovery - encryption detection", "[ssh_key_discovery]") {
     }
 
     SECTION("Return false for non-existent file") {
-        bool encrypted =
-            SSHKeyDiscovery::is_key_encrypted(temp_dir.get_path() / "nonexistent");
+        bool encrypted = SSHKeyDiscovery::is_key_encrypted(temp_dir.get_path() / "nonexistent");
         REQUIRE_FALSE(encrypted);
     }
 }
@@ -159,8 +157,7 @@ TEST_CASE("SSHKeyDiscovery - key discovery", "[ssh_key_discovery]") {
     }
 
     SECTION("Return empty for non-existent directory") {
-        auto keys =
-            SSHKeyDiscovery::discover_keys_in(temp_dir.get_path() / "nonexistent");
+        auto keys = SSHKeyDiscovery::discover_keys_in(temp_dir.get_path() / "nonexistent");
 
         REQUIRE(keys.empty());
     }
@@ -223,13 +220,13 @@ TEST_CASE("SSHKeyDiscovery - encrypted key handling", "[ssh_key_discovery]") {
         REQUIRE(keys.size() == 2);
 
         // Find the encrypted and plain keys
-        auto encrypted_it = std::find_if(
-            keys.begin(), keys.end(),
-            [](const auto& k) { return k.private_key.filename() == "id_encrypted"; });
+        auto encrypted_it = std::find_if(keys.begin(), keys.end(), [](const auto& k) {
+            return k.private_key.filename() == "id_encrypted";
+        });
 
-        auto plain_it = std::find_if(
-            keys.begin(), keys.end(),
-            [](const auto& k) { return k.private_key.filename() == "id_plain"; });
+        auto plain_it = std::find_if(keys.begin(), keys.end(), [](const auto& k) {
+            return k.private_key.filename() == "id_plain";
+        });
 
         REQUIRE(encrypted_it != keys.end());
         REQUIRE(plain_it != keys.end());

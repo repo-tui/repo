@@ -1,6 +1,6 @@
-#include <catch2/catch_test_macros.hpp>
-
 #include <repo/backend/oauth_device_flow.hpp>
+
+#include <catch2/catch_test_macros.hpp>
 
 using namespace repo::backend;
 
@@ -97,8 +97,7 @@ TEST_CASE("OAuthDeviceFlow - JSON parsing", "[oauth_device_flow]") {
     }
 
     SECTION("Parse nested values") {
-        std::string json =
-            R"({"data":{"token":"secret"},"access_token":"ghp_abc123"})";
+        std::string json = R"({"data":{"token":"secret"},"access_token":"ghp_abc123"})";
 
         auto token = OAuthDeviceFlow::parse_json_field(json, "access_token");
         REQUIRE(token);
@@ -122,26 +121,25 @@ TEST_CASE("OAuthDeviceFlow - JSON parsing", "[oauth_device_flow]") {
 
 TEST_CASE("OAuthDeviceFlow - endpoint generation", "[oauth_device_flow]") {
     SECTION("GitHub device code endpoint") {
-        auto endpoint = OAuthDeviceFlow::get_device_code_endpoint(
-            OAuthDeviceFlow::Provider::GitHub, "");
+        auto endpoint =
+            OAuthDeviceFlow::get_device_code_endpoint(OAuthDeviceFlow::Provider::GitHub, "");
         REQUIRE(endpoint == "https://github.com/login/device/code");
     }
 
     SECTION("GitHub token endpoint") {
-        auto endpoint =
-            OAuthDeviceFlow::get_token_endpoint(OAuthDeviceFlow::Provider::GitHub, "");
+        auto endpoint = OAuthDeviceFlow::get_token_endpoint(OAuthDeviceFlow::Provider::GitHub, "");
         REQUIRE(endpoint == "https://github.com/login/oauth/access_token");
     }
 
     SECTION("GitLab device code endpoint with custom host") {
-        auto endpoint = OAuthDeviceFlow::get_device_code_endpoint(
-            OAuthDeviceFlow::Provider::GitLab, "gitlab.example.com");
+        auto endpoint = OAuthDeviceFlow::get_device_code_endpoint(OAuthDeviceFlow::Provider::GitLab,
+                                                                  "gitlab.example.com");
         REQUIRE(endpoint == "https://gitlab.example.com/oauth/authorize_device");
     }
 
     SECTION("GitLab token endpoint with default host") {
-        auto endpoint = OAuthDeviceFlow::get_token_endpoint(
-            OAuthDeviceFlow::Provider::GitLab, "gitlab.com");
+        auto endpoint =
+            OAuthDeviceFlow::get_token_endpoint(OAuthDeviceFlow::Provider::GitLab, "gitlab.com");
         REQUIRE(endpoint == "https://gitlab.com/oauth/token");
     }
 }

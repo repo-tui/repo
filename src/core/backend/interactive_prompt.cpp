@@ -1,5 +1,4 @@
 #include <repo/backend/interactive_prompt.hpp>
-
 #include <repo/error.hpp>
 
 #include <iostream>
@@ -27,8 +26,7 @@ auto InteractivePrompt::prompt_for_credentials(const std::string& url,
 
     if (mode == Mode::TUI) {
         return std::unexpected(make_error(
-            Error::Code::CredentialRequired,
-            "Interactive authentication not available in TUI mode",
+            Error::Code::CredentialRequired, "Interactive authentication not available in TUI mode",
             "Cannot prompt for credentials in TUI mode.\n\n"
             "Options:\n"
             "  1. Configure credential helper:\n"
@@ -40,15 +38,15 @@ auto InteractivePrompt::prompt_for_credentials(const std::string& url,
     }
 
     if (mode == Mode::NonInteractive) {
-        return std::unexpected(make_error(
-            Error::Code::CredentialRequired,
-            "Interactive authentication not available (non-interactive mode)",
-            "Cannot prompt for credentials when not running in a terminal.\n\n"
-            "Options:\n"
-            "  1. Configure credential helper:\n"
-            "     git config --global credential.helper <helper>\n\n"
-            "  2. Use SSH authentication:\n"
-            "     git remote set-url origin git@github.com:user/repo.git"));
+        return std::unexpected(
+            make_error(Error::Code::CredentialRequired,
+                       "Interactive authentication not available (non-interactive mode)",
+                       "Cannot prompt for credentials when not running in a terminal.\n\n"
+                       "Options:\n"
+                       "  1. Configure credential helper:\n"
+                       "     git config --global credential.helper <helper>\n\n"
+                       "  2. Use SSH authentication:\n"
+                       "     git remote set-url origin git@github.com:user/repo.git"));
     }
 
     // CLI mode - we can prompt
