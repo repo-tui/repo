@@ -361,7 +361,8 @@ auto cmd_cherry_pick_commit(std::string repo_path, domain::ObjectId commit_id) -
                 return ErrorMsg{std::move(repo.error()), "cherry-pick"};
             }
 
-            auto result = ops::select_commit(*repo, ops::SelectCommitParams{.commit = commit_id});
+            auto result = ops::select_commit(
+                *repo, ops::SelectCommitParams{.commit = commit_id, .no_commit = false});
 
             if (!result) {
                 return ErrorMsg{std::move(result.error()), "cherry-pick"};

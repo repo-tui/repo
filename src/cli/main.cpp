@@ -1456,7 +1456,8 @@ auto cmd_stash_create(const std::string& message) -> int {
     // Create default signature
     domain::Signature sig{.name = "Stasher",
                           .email = "stasher@example.com",
-                          .when = std::chrono::system_clock::now()};
+                          .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     auto result = ops::create_stash(*repo_result, {.message = message, .stasher = sig});
     if (!result.has_value()) {

@@ -41,7 +41,8 @@ TEST_CASE("Stash - create stash with modified file", "[integration][stash]") {
     // Create stash
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     auto create_result = ops::create_stash(temp_repo.repo(), {.message = "WIP: testing",
                                                               .stasher = stasher,
@@ -74,7 +75,8 @@ TEST_CASE("Stash - working directory is restored after stash", "[integration][st
     // Create stash
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     ops::create_stash(temp_repo.repo(), {.message = "WIP: testing",
                                          .stasher = stasher,
@@ -103,7 +105,8 @@ TEST_CASE("Stash - apply stash restores changes", "[integration][stash]") {
     // Create stash
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     ops::create_stash(temp_repo.repo(), {.message = "WIP: testing",
                                          .stasher = stasher,
@@ -142,7 +145,8 @@ TEST_CASE("Stash - pop stash restores and removes", "[integration][stash]") {
     // Create stash
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     ops::create_stash(temp_repo.repo(), {.message = "WIP: testing",
                                          .stasher = stasher,
@@ -181,7 +185,8 @@ TEST_CASE("Stash - drop stash removes without applying", "[integration][stash]")
     // Create stash
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     ops::create_stash(temp_repo.repo(), {.message = "WIP: testing",
                                          .stasher = stasher,
@@ -221,7 +226,8 @@ TEST_CASE("Stash - multiple stashes", "[integration][stash]") {
 
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     auto file_path = temp_repo.path() / "file.txt";
 
@@ -272,7 +278,8 @@ TEST_CASE("Stash - create with empty message fails", "[integration][stash]") {
 
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     // Try to create stash with empty message
     auto result = ops::create_stash(
@@ -298,7 +305,8 @@ TEST_CASE("Stash - create with empty stasher name fails", "[integration][stash]"
 
     domain::Signature stasher{.name = "", // Empty name
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     // Try to create stash
     auto result = ops::create_stash(
@@ -324,7 +332,8 @@ TEST_CASE("Stash - create with empty stasher email fails", "[integration][stash]
 
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "", // Empty email
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     // Try to create stash
     auto result = ops::create_stash(
@@ -346,7 +355,8 @@ TEST_CASE("Stash - create with no changes fails", "[integration][stash]") {
 
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     // Try to create stash with no changes
     auto result = ops::create_stash(
@@ -404,7 +414,8 @@ TEST_CASE("Stash - include_untracked flag", "[integration][stash]") {
 
     domain::Signature stasher{.name = "Test Stasher",
                               .email = "stasher@example.com",
-                              .when = std::chrono::system_clock::now()};
+                              .when = std::chrono::system_clock::now(),
+                          .tz_offset = std::chrono::minutes{0}};
 
     // Create stash with include_untracked
     auto result = ops::create_stash(temp_repo.repo(), {.message = "WIP with untracked",
