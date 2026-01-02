@@ -1396,7 +1396,8 @@ auto cmd_commit_create(const std::string& message) -> int {
         return 1;
     }
 
-    auto result = ops::commit(*repo_result, {.message = message});
+    auto result = ops::commit(*repo_result,
+                              {.message = message, .author = std::nullopt, .committer = std::nullopt});
     if (!result.has_value()) {
         fmt::print(stderr, fmt::emphasis::bold | red, "Error: ");
         fmt::print(stderr, "{}\n", result.error().message);
