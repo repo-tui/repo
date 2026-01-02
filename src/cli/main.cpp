@@ -165,7 +165,8 @@ auto cmd_init(const std::string& path_str, bool bare, bool interactive,
     ops::InitParams params{.path = path,
                            .bare = bare,
                            .interactive = false, // We handle interactivity here
-                           .project_types = project_types};
+                           .project_types = project_types,
+                           .initial_branch_name = std::nullopt};
 
     auto result = ops::init(params);
     if (!result.has_value()) {
